@@ -34,6 +34,11 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
   url.searchParams.set("maxResults", "12")
   url.searchParams.set("printType", "books")
   url.searchParams.set("orderBy", "relevance")
+  // Unauthenticated requests share a small public quota that 429s under
+  // normal traffic; a key moves the app onto its own per-project quota.
+  if (process.env.GOOGLE_BOOKS_API_KEY) {
+    url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY)
+  }
 
   try {
     const res = await fetch(url, { next: { revalidate: 3600 } })
