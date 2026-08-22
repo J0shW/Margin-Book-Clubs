@@ -109,7 +109,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
           </Button>
         }
       />
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" initialFocus={false}>
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">Nominate a book</DialogTitle>
           <DialogDescription>Search by title or author, or add a book by hand.</DialogDescription>
@@ -134,7 +134,6 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Title, author, or ISBN"
-                autoFocus
                 aria-label="Search books"
               />
               {searching ? (
