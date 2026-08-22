@@ -115,7 +115,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
           <DialogDescription>Search by title or author, or add a book by hand.</DialogDescription>
         </DialogHeader>
 
-        <Tabs value={tab} onValueChange={(value) => setTab(value as string)}>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as string)} className="min-w-0">
           <TabsList className="w-full">
             <TabsTrigger value="search" className="flex-1">
               Search
@@ -143,10 +143,10 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
               ) : null}
             </InputGroup>
 
-            <div className="flex max-h-[22rem] flex-col overflow-y-auto">
+            <div className="flex min-w-0 max-h-[22rem] flex-col overflow-y-auto">
               {searching && results.length === 0
                 ? Array.from({ length: 3 }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-3 border-t border-border py-3">
+                    <div key={i} className="flex min-w-0 items-center gap-3 border-t border-border py-3">
                       <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
                       <div className="flex flex-1 flex-col gap-2">
                         <Skeleton className="h-4 w-3/4" />
@@ -157,7 +157,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
                 : null}
 
               {results.map((book) => (
-                <div key={book.sourceId} className="flex items-center gap-3 border-t border-border py-3">
+                <div key={book.sourceId} className="flex min-w-0 items-center gap-3 border-t border-border py-3">
                   <BookCover src={book.coverImageUrl} title={book.title} />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <div className="flex min-w-0 items-center gap-1.5">
