@@ -34,6 +34,11 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
   url.searchParams.set("maxResults", "12")
   url.searchParams.set("printType", "books")
   url.searchParams.set("orderBy", "relevance")
+  // Serverless hosts (Vercel included) call out from IPs Google can't
+  // geolocate, which the Books API rejects with "Cannot determine user
+  // location for geographically restricted operation" unless a country
+  // is given explicitly.
+  url.searchParams.set("country", "US")
   // Unauthenticated requests share a small public quota that 429s under
   // normal traffic; a key moves the app onto its own per-project quota.
   if (process.env.GOOGLE_BOOKS_API_KEY) {
