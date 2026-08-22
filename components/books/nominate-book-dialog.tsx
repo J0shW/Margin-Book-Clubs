@@ -161,8 +161,8 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
                 <div key={book.sourceId} className="flex items-center gap-3 border-t border-border py-3">
                   <BookCover src={book.coverImageUrl} title={book.title} />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="flex items-center gap-1.5">
-                      <p className="truncate text-sm font-medium">{book.title}</p>
+                    <div className="flex min-w-0 items-center gap-1.5">
+                      <p className="min-w-0 truncate text-sm font-medium">{book.title}</p>
                       <Badge variant="outline" className="h-4 shrink-0 px-1.5 text-[10px] font-normal text-muted-foreground">
                         {sourceLabel(book.sourceId)}
                       </Badge>
@@ -175,6 +175,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
                   <Button
                     size="sm"
                     variant="outline"
+                    className="shrink-0"
                     onClick={() => nominate(book)}
                     disabled={pendingId !== null}
                     aria-label={`Nominate ${book.title}`}
