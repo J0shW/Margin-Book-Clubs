@@ -21,6 +21,13 @@ export type BookSearchResult = {
   pageCount: number | null
 }
 
+export type ManualBookInput = {
+  title: string
+  authors: string[]
+  publishedDate: string | null
+  pageCount: number | null
+}
+
 export type Club = {
   id: string
   name: string

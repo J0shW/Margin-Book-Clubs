@@ -2,7 +2,7 @@
 
 import { cleanCategories, fetchOpenLibraryWork } from "@/lib/books"
 import { createClient } from "@/lib/supabase/server"
-import type { ActionState, BookSearchResult } from "@/lib/types"
+import type { ActionState, BookSearchResult, ManualBookInput } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -142,6 +142,49 @@ export async function nominateBookAction(clubId: string, book: BookSearchResult)
 
   revalidatePath(`/clubs/${clubId}`)
   return { success: `“${book.title}” nominated.` }
+}
+
+export async function addManualBookAction(clubId: string, input: ManualBookInput): Promise<ActionState> {
+  const title = input.title.trim()
+  if (title.length < 1) return { error: "Give the book a title." }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Sign in to add a book." }
+
+  // Books added by hand have no external catalog entry to key off of, so a
+  // random id stands in for source_id, the column findOrCreateBook and the
+  // shared `books` catalog's uniqueness constraint both expect.
+  const book: BookSearchResult = {
+    sourceId: `manual:${crypto.randomUUID()}`,
+    title,
+    authors: input.authors.map((author) => author.trim()).filter(Boolean),
+    description: null,
+    categories: [],
+    coverImageUrl: null,
+    publishedDate: input.publishedDate,
+    pageCount: input.pageCount,
+  }
+
+  const bookId = await findOrCreateBook(supabase, book)
+  if (!bookId) return { error: "Could not save that book. Try again." }
+
+  const { error } = await supabase.from("club_candidate_books").insert({
+    club_id: clubId,
+    book_id: bookId,
+    added_by: user.id,
+  })
+
+  if (error) {
+    if (error.code === "23505") return { error: "That book is already nominated." }
+    console.log("[v0] manual add failed:", error.message)
+    return { error: "Could not add that book." }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: `“${book.title}” added.` }
 }
 
 export async function removeCandidateAction(clubId: string, candidateId: string): Promise<ActionState> {
