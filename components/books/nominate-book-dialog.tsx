@@ -5,6 +5,7 @@ import { PlusIcon, SearchIcon } from "lucide-react"
 import { toast } from "sonner"
 import { nominateBookAction } from "@/app/clubs/actions"
 import { BookCover } from "@/components/books/book-cover"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -20,6 +21,12 @@ import { Spinner } from "@/components/ui/spinner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { AddBookManuallyForm } from "@/components/books/add-book-manually-form"
 import type { BookSearchResult } from "@/lib/types"
+
+function sourceLabel(sourceId: string) {
+  if (sourceId.startsWith("gb:")) return "Google Books"
+  if (sourceId.startsWith("ol:")) return "Open Library"
+  return null
+}
 
 export function NominateBookDialog({ clubId, disabled }: { clubId: string; disabled?: boolean }) {
   const [open, setOpen] = useState(false)
@@ -154,7 +161,12 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
                 <div key={book.sourceId} className="flex items-center gap-3 border-t border-border py-3">
                   <BookCover src={book.coverImageUrl} title={book.title} />
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <p className="truncate text-sm font-medium">{book.title}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="truncate text-sm font-medium">{book.title}</p>
+                      <Badge variant="outline" className="h-4 shrink-0 px-1.5 text-[10px] font-normal text-muted-foreground">
+                        {sourceLabel(book.sourceId)}
+                      </Badge>
+                    </div>
                     <p className="truncate text-xs text-muted-foreground">
                       {book.authors.length ? book.authors.join(", ") : "Unknown author"}
                       {book.publishedDate ? ` · ${book.publishedDate.slice(0, 4)}` : ""}
