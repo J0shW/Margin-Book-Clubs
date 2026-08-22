@@ -17,6 +17,8 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AddBookManuallyForm } from "@/components/books/add-book-manually-form"
 import type { BookSearchResult } from "@/lib/types"
 
 export function NominateBookDialog({ clubId, disabled }: { clubId: string; disabled?: boolean }) {
@@ -26,6 +28,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
   const [searching, setSearching] = useState(false)
   const [searched, setSearched] = useState(false)
   const [pendingId, setPendingId] = useState<string | null>(null)
+  const [tab, setTab] = useState("search")
   const [, startTransition] = useTransition()
 
   useEffect(() => {
@@ -72,15 +75,25 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
         return
       }
       toast.success(result?.success ?? "Book nominated.")
-      setOpen(false)
-      setQuery("")
-      setResults([])
-      setSearched(false)
+      close()
     })
   }
 
+  function close() {
+    setOpen(false)
+    setQuery("")
+    setResults([])
+    setSearched(false)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (next) setTab("search")
+      }}
+    >
       <DialogTrigger
         render={
           <Button disabled={disabled} size="sm">
@@ -92,66 +105,88 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-serif text-2xl">Nominate a book</DialogTitle>
-          <DialogDescription>Search by title or author and add a book to the shortlist.</DialogDescription>
+          <DialogDescription>Search by title or author, or add a book by hand.</DialogDescription>
         </DialogHeader>
 
-        <InputGroup>
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Title, author, or ISBN"
-            autoFocus
-            aria-label="Search books"
-          />
-          {searching ? (
-            <InputGroupAddon align="inline-end">
-              <Spinner />
-            </InputGroupAddon>
-          ) : null}
-        </InputGroup>
+        <Tabs value={tab} onValueChange={(value) => setTab(value as string)}>
+          <TabsList className="w-full">
+            <TabsTrigger value="search" className="flex-1">
+              Search
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex-1">
+              Add manually
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="flex max-h-[22rem] flex-col overflow-y-auto">
-          {searching && results.length === 0
-            ? Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 border-t border-border py-3">
-                  <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
-                  <div className="flex flex-1 flex-col gap-2">
-                    <Skeleton className="h-4 w-3/4" />
-                    <Skeleton className="h-3 w-1/2" />
+          <TabsContent value="search">
+            <InputGroup>
+              <InputGroupAddon>
+                <SearchIcon />
+              </InputGroupAddon>
+              <InputGroupInput
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Title, author, or ISBN"
+                autoFocus
+                aria-label="Search books"
+              />
+              {searching ? (
+                <InputGroupAddon align="inline-end">
+                  <Spinner />
+                </InputGroupAddon>
+              ) : null}
+            </InputGroup>
+
+            <div className="flex max-h-[22rem] flex-col overflow-y-auto">
+              {searching && results.length === 0
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 border-t border-border py-3">
+                      <Skeleton className="aspect-[2/3] w-12 rounded-sm" />
+                      <div className="flex flex-1 flex-col gap-2">
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-1/2" />
+                      </div>
+                    </div>
+                  ))
+                : null}
+
+              {results.map((book) => (
+                <div key={book.sourceId} className="flex items-center gap-3 border-t border-border py-3">
+                  <BookCover src={book.coverImageUrl} title={book.title} />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <p className="truncate text-sm font-medium">{book.title}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {book.authors.length ? book.authors.join(", ") : "Unknown author"}
+                      {book.publishedDate ? ` · ${book.publishedDate.slice(0, 4)}` : ""}
+                    </p>
                   </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => nominate(book)}
+                    disabled={pendingId !== null}
+                    aria-label={`Nominate ${book.title}`}
+                  >
+                    {pendingId === book.sourceId ? <Spinner /> : "Add"}
+                  </Button>
                 </div>
-              ))
-            : null}
+              ))}
 
-          {results.map((book) => (
-            <div key={book.sourceId} className="flex items-center gap-3 border-t border-border py-3">
-              <BookCover src={book.coverImageUrl} title={book.title} />
-              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <p className="truncate text-sm font-medium">{book.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {book.authors.length ? book.authors.join(", ") : "Unknown author"}
-                  {book.publishedDate ? ` · ${book.publishedDate.slice(0, 4)}` : ""}
-                </p>
-              </div>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => nominate(book)}
-                disabled={pendingId !== null}
-                aria-label={`Nominate ${book.title}`}
-              >
-                {pendingId === book.sourceId ? <Spinner /> : "Add"}
-              </Button>
+              {searched && !searching && results.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
+                  <p>No books matched that search.</p>
+                  <Button size="sm" variant="link" className="h-auto p-0" onClick={() => setTab("manual")}>
+                    Add it manually instead
+                  </Button>
+                </div>
+              ) : null}
             </div>
-          ))}
+          </TabsContent>
 
-          {searched && !searching && results.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">No books matched that search.</p>
-          ) : null}
-        </div>
+          <TabsContent value="manual">
+            <AddBookManuallyForm clubId={clubId} onAdded={close} />
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   )
