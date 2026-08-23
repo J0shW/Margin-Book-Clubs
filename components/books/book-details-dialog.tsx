@@ -15,9 +15,11 @@ import type { Book } from "@/lib/types"
 
 type Props = {
   book: Book
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
-export function BookDetailsDialog({ book }: Props) {
+export function BookDetailsDialog({ book, open, onOpenChange }: Props) {
   const authors = book.authors.length ? book.authors.join(", ") : "Unknown author"
   const categories = book.categories ?? []
 
@@ -27,7 +29,7 @@ export function BookDetailsDialog({ book }: Props) {
   ].filter(Boolean) as string[]
 
   return (
-    <Dialog>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger
         render={
           <Button variant="ghost" size="icon-sm" aria-label={`Details for ${book.title}`}>
