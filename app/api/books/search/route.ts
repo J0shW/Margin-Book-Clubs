@@ -46,7 +46,11 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
   }
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
+    // Next.js caches a fetch response for the full revalidate window even
+    // when it's an error (a 429/503/etc looks identical to success here),
+    // so this stays short — a bad response should self-heal in a minute,
+    // not freeze that search as broken for the rest of the hour.
+    const res = await fetch(url, { next: { revalidate: 60 } })
     if (!res.ok) return null
 
     const data = (await res.json()) as { items?: GoogleVolume[] }
@@ -82,7 +86,11 @@ async function searchOpenLibrary(q: string): Promise<BookSearchResult[] | null> 
   )
 
   try {
-    const res = await fetch(url, { next: { revalidate: 3600 } })
+    // Next.js caches a fetch response for the full revalidate window even
+    // when it's an error (a 429/503/etc looks identical to success here),
+    // so this stays short — a bad response should self-heal in a minute,
+    // not freeze that search as broken for the rest of the hour.
+    const res = await fetch(url, { next: { revalidate: 60 } })
     if (!res.ok) return null
 
     const data = (await res.json()) as { docs?: OpenLibraryDoc[] }
