@@ -60,7 +60,7 @@ export function RankedBallot({ clubId, sessionId, books }: Props) {
             </span>
             <BookCover src={book.cover_image_url} title={book.title} />
             <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <p className="truncate text-sm font-medium">{book.title}</p>
+              <p className="text-pretty text-sm font-medium">{book.title}</p>
               <p className="truncate text-xs text-muted-foreground">
                 {book.authors.length ? book.authors.join(", ") : "Unknown author"}
               </p>
