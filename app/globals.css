@@ -89,6 +89,13 @@
 }
 
 @layer base {
+  html {
+    /* Every rem-based size in this app (type scale, spacing, radii,
+       component sizes) is relative to this, so raising it scales the
+       whole UI proportionally rather than just enlarging text inside
+       unchanged containers. */
+    font-size: 18px;
+  }
   * {
     @apply border-border outline-ring/50;
   }
