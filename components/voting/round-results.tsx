@@ -45,9 +45,9 @@ export function RoundResults({ results, booksById, winner }: Props) {
                   const book = booksById.get(count.book_id)
                   const isWinner = count.book_id === results.winner_book_id
                   return (
-                    <li key={count.book_id} className="flex flex-col gap-1">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="truncate text-sm">{book?.title ?? "Unknown book"}</span>
+                    <li key={count.book_id} className="flex min-w-0 flex-col gap-1">
+                      <div className="flex min-w-0 items-baseline justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm">{book?.title ?? "Unknown book"}</span>
                         <span className="shrink-0 font-mono text-xs text-muted-foreground">{count.votes}</span>
                       </div>
                       <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">

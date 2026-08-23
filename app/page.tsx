@@ -78,9 +78,9 @@ export default async function HomePage() {
         </div>
         <ul className="flex flex-col gap-3">
           {sampleRound.map((row) => (
-            <li key={row.title} className="flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="truncate text-sm">{row.title}</span>
+            <li key={row.title} className="flex min-w-0 flex-col gap-1.5">
+              <div className="flex min-w-0 items-baseline justify-between gap-3">
+                <span className="min-w-0 truncate text-sm">{row.title}</span>
                 <span className="shrink-0 font-mono text-xs text-muted-foreground">{row.votes}</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
