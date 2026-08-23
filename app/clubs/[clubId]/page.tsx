@@ -33,7 +33,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
   const [{ data: candidateRows }, { data: memberRows }, { data: sessionRows }] = await Promise.all([
     supabase
       .from("club_candidate_books")
-      .select(`id, club_id, book_id, added_by, added_at, books(${BOOK_FIELDS})`)
+      .select(`id, club_id, book_id, added_by, added_at, books(${BOOK_FIELDS}), profiles(display_name)`)
       .eq("club_id", clubId)
       .order("added_at", { ascending: true }),
     supabase.from("club_members").select("user_id, profiles(display_name)").eq("club_id", clubId),

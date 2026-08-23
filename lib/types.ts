@@ -44,6 +44,7 @@ export type Candidate = {
   added_by: string
   added_at: string
   books: Book
+  profiles: { display_name: string | null } | null
 }
 
 export type RoundCount = { book_id: string; votes: number }

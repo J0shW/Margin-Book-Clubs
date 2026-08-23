@@ -42,6 +42,9 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                 {candidate.books.authors.length ? candidate.books.authors.join(", ") : "Unknown author"}
                 {candidate.books.page_count ? ` · ${candidate.books.page_count} pp.` : ""}
               </p>
+              <p className="truncate text-xs text-muted-foreground">
+                Nominated by {candidate.profiles?.display_name ?? "a member"}
+              </p>
             </div>
             <BookDetailsDialog book={candidate.books} />
             {canRemove ? (
