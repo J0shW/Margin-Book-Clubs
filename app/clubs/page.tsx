@@ -60,11 +60,14 @@ export default async function ClubsPage() {
         <Link href="/" className="font-serif text-xl tracking-tight">
           Margin
         </Link>
-        <form action={signOutAction}>
-          <Button type="submit" variant="ghost" size="sm">
-            Sign out
-          </Button>
-        </form>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" nativeButton={false} render={<Link href="/settings">Settings</Link>} />
+          <form action={signOutAction}>
+            <Button type="submit" variant="ghost" size="sm">
+              Sign out
+            </Button>
+          </form>
+        </div>
       </header>
 
       <section className="flex flex-col gap-5">
