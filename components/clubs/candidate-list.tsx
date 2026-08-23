@@ -71,7 +71,15 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                   Nominated by {candidate.profiles?.display_name ?? "a member"}
                 </p>
               </div>
-              <div className="flex shrink-0 flex-col">
+              {/*
+                React bubbles synthetic events through the component tree, not
+                the DOM tree — so clicks inside the dialog's portaled content
+                (its own close button included) would otherwise reach the row's
+                onClick and immediately reopen it. Stopping propagation here,
+                on the actions column itself, covers both that portal content
+                and the buttons below without needing it on each one.
+              */}
+              <div className="flex shrink-0 flex-col" onClick={(e) => e.stopPropagation()}>
                 <BookDetailsDialog
                   book={candidate.books}
                   open={openDetailsId === candidate.id}
@@ -81,10 +89,7 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setRemoveTarget(candidate)
-                    }}
+                    onClick={() => setRemoveTarget(candidate)}
                     disabled={pending}
                     aria-label={`Remove ${candidate.books.title}`}
                   >
