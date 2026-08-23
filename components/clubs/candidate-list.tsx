@@ -46,18 +46,20 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                 Nominated by {candidate.profiles?.display_name ?? "a member"}
               </p>
             </div>
-            <BookDetailsDialog book={candidate.books} />
-            {canRemove ? (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => remove(candidate.id)}
-                disabled={pending}
-                aria-label={`Remove ${candidate.books.title}`}
-              >
-                {pending ? <Spinner /> : <XIcon />}
-              </Button>
-            ) : null}
+            <div className="flex shrink-0 flex-col">
+              <BookDetailsDialog book={candidate.books} />
+              {canRemove ? (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => remove(candidate.id)}
+                  disabled={pending}
+                  aria-label={`Remove ${candidate.books.title}`}
+                >
+                  {pending ? <Spinner /> : <XIcon />}
+                </Button>
+              ) : null}
+            </div>
           </li>
         )
       })}
