@@ -8,15 +8,18 @@ import { BookCover } from "@/components/books/book-cover"
 import { BookDetailsDialog } from "@/components/books/book-details-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import type { Book } from "@/lib/types"
+import { ballotInstructions } from "@/lib/voting"
+import type { Book, VotingMethod } from "@/lib/types"
 
 type Props = {
   clubId: string
   sessionId: string
+  /** Already shuffled per voter, so nobody's ballot starts in nomination order. */
   books: Book[]
+  method: VotingMethod
 }
 
-export function RankedBallot({ clubId, sessionId, books }: Props) {
+export function RankedBallot({ clubId, sessionId, books, method }: Props) {
   const [order, setOrder] = useState<Book[]>(books)
   const [pending, startTransition] = useTransition()
 
@@ -45,8 +48,7 @@ export function RankedBallot({ clubId, sessionId, books }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm leading-relaxed text-muted-foreground text-pretty">
-        Put your first choice at the top. If it gets eliminated, your vote transfers to the next book on your
-        list.
+        {ballotInstructions(method)}
       </p>
 
       <ol className="flex flex-col">

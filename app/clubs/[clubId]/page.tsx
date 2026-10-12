@@ -12,11 +12,13 @@ import { ReadDates } from "@/components/reads/read-dates"
 import { ReadDatesDialog } from "@/components/reads/read-dates-dialog"
 import { RatingPrompt } from "@/components/reads/rating-prompt"
 import { RankedBallot } from "@/components/voting/ranked-ballot"
-import { RoundResults } from "@/components/voting/round-results"
+import { TieBreaker } from "@/components/voting/tie-breaker"
+import { VoteResults as VoteResultsView } from "@/components/voting/vote-results"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { averageRating } from "@/lib/reads"
+import { shuffleForVoter, votingMethodLabel } from "@/lib/voting"
 import { createClient } from "@/lib/supabase/server"
 import type { Book, Candidate, Club, Read, VotingSession } from "@/lib/types"
 
@@ -56,7 +58,7 @@ function VoteResults({ session, booksById }: { session: SessionRow; booksById: M
         How the vote went
       </summary>
       <div className="pt-4">
-        <RoundResults results={session.results} booksById={booksById} winner={undefined} />
+        <VoteResultsView results={session.results} booksById={booksById} />
       </div>
     </details>
   )
@@ -122,6 +124,8 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
   const currentSession = sessions.find((session) => session.read_id === currentRead?.id) ?? null
   const nextSession = sessions.find((session) => session.read_id === nextRead?.id) ?? null
   const activeSession = nextRead?.status === "voting" && nextSession?.status === "active" ? nextSession : null
+  // A count that ended in a tie waits for the organizer to pick the winner.
+  const tiedSession = nextRead?.status === "voting" && nextSession?.status === "tied" ? nextSession : null
 
   // Nominations for the next read, and what can be carried over into it.
   const allCandidates = (candidateRows ?? []) as unknown as CandidateRow[]
@@ -193,8 +197,13 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
       (row): row is { voting_session_id: string; books: Book } => Boolean(row.books),
     )
     for (const row of rows) booksById.set(row.books.id, row.books)
+    // Each member gets their own stable random starting order, so no book gets
+    // a head start from people who submit without reordering.
     ballotBooks = activeSession
-      ? rows.filter((row) => row.voting_session_id === activeSession.id).map((row) => row.books)
+      ? shuffleForVoter(
+          rows.filter((row) => row.voting_session_id === activeSession.id).map((row) => row.books),
+          `${user.id}:${activeSession.id}`,
+        )
       : []
     hasVoted = Boolean(myVote.data)
     ballotCount = ballots.count ?? 0
@@ -223,6 +232,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
           members={members}
           ownerId={club.owner_id}
           isOwner={isOwner}
+          votingMethod={club.voting_method}
         />
       </header>
 
@@ -309,6 +319,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
               {ballotCount} of {members.length} voted
             </Badge>
           ) : null}
+          {tiedSession ? <Badge variant="secondary">Tied</Badge> : null}
         </div>
 
         {!nextRead ? (
@@ -397,9 +408,29 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
                 Your ballot is in. Results appear once the organizer closes the vote.
               </p>
             ) : (
-              <RankedBallot clubId={club.id} sessionId={activeSession.id} books={ballotBooks} />
+              <RankedBallot
+                clubId={club.id}
+                sessionId={activeSession.id}
+                books={ballotBooks}
+                method={activeSession.method}
+              />
             )}
+            <p className="text-xs text-muted-foreground">Counted by {votingMethodLabel(activeSession.method)}.</p>
             {isOwner ? <CloseVotingButton clubId={club.id} sessionId={activeSession.id} /> : null}
+          </>
+        ) : null}
+
+        {tiedSession?.results ? (
+          <>
+            <TieBreaker
+              clubId={club.id}
+              sessionId={tiedSession.id}
+              books={(tiedSession.results.tied_book_ids ?? [])
+                .map((id) => booksById.get(id))
+                .filter((book): book is Book => Boolean(book))}
+              isOwner={isOwner}
+            />
+            <VoteResults session={tiedSession} booksById={booksById} />
           </>
         ) : null}
 

@@ -4,6 +4,7 @@ import { SettingsIcon } from "lucide-react"
 import { JoinCode } from "@/components/clubs/join-code"
 import { MemberList } from "@/components/clubs/member-list"
 import { LeaveClubButton } from "@/components/clubs/organizer-controls"
+import { VotingMethodSetting } from "@/components/clubs/voting-method-setting"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -13,6 +14,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import type { VotingMethod } from "@/lib/types"
 
 type Member = { user_id: string; profiles: { display_name: string | null } | null }
 
@@ -23,10 +25,11 @@ type Props = {
   members: Member[]
   ownerId: string
   isOwner: boolean
+  votingMethod: VotingMethod
 }
 
 /** Join code, members, and leaving: things needed rarely, kept off the main page. */
-export function ClubSettingsDialog({ clubId, clubName, joinCode, members, ownerId, isOwner }: Props) {
+export function ClubSettingsDialog({ clubId, clubName, joinCode, members, ownerId, isOwner, votingMethod }: Props) {
   return (
     <Dialog>
       <DialogTrigger
@@ -53,6 +56,8 @@ export function ClubSettingsDialog({ clubId, clubName, joinCode, members, ownerI
           </h3>
           <MemberList clubId={clubId} members={members} ownerId={ownerId} isOwner={isOwner} />
         </div>
+
+        <VotingMethodSetting clubId={clubId} method={votingMethod} canEdit={isOwner} />
 
         {isOwner ? null : (
           <div className="border-t border-border pt-4">
