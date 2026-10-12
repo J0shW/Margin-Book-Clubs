@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
 
-const PUBLIC_PREFIXES = ["/auth", "/_next", "/favicon.ico"]
+// /api/keep-alive is called by a Vercel cron job with no user session; it
+// checks CRON_SECRET itself.
+const PUBLIC_PREFIXES = ["/auth", "/_next", "/favicon.ico", "/api/keep-alive"]
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
