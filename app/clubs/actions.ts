@@ -352,6 +352,45 @@ export async function renominateBooksAction(clubId: string, bookIds: string[]): 
   return { success: added === 1 ? "Book nominated." : `${added} books nominated.` }
 }
 
+/**
+ * Saves (or changes) the signed-in member's rating of a finished read. Scores
+ * run 0.5–10 in half points and are stored as a count of halves (1–20).
+ */
+export async function rateReadAction(
+  clubId: string,
+  readId: string,
+  readNumber: number,
+  scoreHalves: number,
+): Promise<ActionState> {
+  if (!Number.isInteger(scoreHalves) || scoreHalves < 1 || scoreHalves > 20) {
+    return { error: "Pick a score from 0.5 to 10." }
+  }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Sign in to rate a book." }
+
+  const { error } = await supabase
+    .from("read_ratings")
+    .upsert(
+      { read_id: readId, user_id: user.id, score_halves: scoreHalves, updated_at: new Date().toISOString() },
+      { onConflict: "read_id,user_id" },
+    )
+
+  if (error) {
+    console.log("[v0] rate read failed:", error.message)
+    // RLS rejects ratings for reads that aren't finished yet.
+    if (error.code === "42501") return { error: "This read can be rated once it’s marked finished." }
+    return { error: "Could not save your rating. Try again." }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath(`/clubs/${clubId}/reads/${readNumber}`)
+  return { success: "Rating saved." }
+}
+
 export async function submitBallotAction(
   clubId: string,
   sessionId: string,

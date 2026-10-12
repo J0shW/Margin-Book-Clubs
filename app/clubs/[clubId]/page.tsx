@@ -10,6 +10,7 @@ import { CarryOver, type CarryOverBook } from "@/components/reads/carry-over"
 import { PastReads } from "@/components/reads/past-reads"
 import { ReadDates } from "@/components/reads/read-dates"
 import { ReadDatesDialog } from "@/components/reads/read-dates-dialog"
+import { RatingPrompt } from "@/components/reads/rating-prompt"
 import { RankedBallot } from "@/components/voting/ranked-ballot"
 import { RoundResults } from "@/components/voting/round-results"
 import { Badge } from "@/components/ui/badge"
@@ -113,7 +114,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
           .order("added_at", { ascending: true })
       : Promise.resolve({ data: [] }),
     pastReadIds.length
-      ? supabase.from("read_ratings").select("read_id, score_halves").in("read_id", pastReadIds)
+      ? supabase.from("read_ratings").select("read_id, user_id, score_halves").in("read_id", pastReadIds)
       : Promise.resolve({ data: [] }),
   ])
 
@@ -144,9 +145,13 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
 
   // Club averages for past reads.
   const scoresByRead = new Map<string, number[]>()
-  for (const row of (ratingRows ?? []) as { read_id: string; score_halves: number }[]) {
+  const ratedByMe = new Set<string>()
+  for (const row of (ratingRows ?? []) as { read_id: string; user_id: string; score_halves: number }[]) {
     scoresByRead.set(row.read_id, [...(scoresByRead.get(row.read_id) ?? []), row.score_halves])
+    if (row.user_id === user.id) ratedByMe.add(row.read_id)
   }
+  // Prompt for the most recently finished read until this member rates it.
+  const readToRate = pastReads[0] && !ratedByMe.has(pastReads[0].id) ? pastReads[0] : null
   const averages: Record<string, number> = {}
   for (const [readId, scores] of scoresByRead) {
     const average = averageRating(scores)
@@ -227,6 +232,15 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
         </SectionLabel>
         <h1 className="font-serif text-4xl leading-tight text-balance">{club.name}</h1>
       </div>
+
+      {readToRate ? (
+        <RatingPrompt
+          clubId={club.id}
+          readId={readToRate.id}
+          readNumber={readToRate.number}
+          title={readToRate.books?.title ?? `read #${readToRate.number}`}
+        />
+      ) : null}
 
       {/* Current read */}
       <section className="flex flex-col gap-5 border-t border-border pt-8">

@@ -4,6 +4,7 @@ import { ArrowLeftIcon, StarIcon, TrophyIcon } from "lucide-react"
 import { BookCover } from "@/components/books/book-cover"
 import { BookDetailsDialog } from "@/components/books/book-details-dialog"
 import { ReadDates } from "@/components/reads/read-dates"
+import { RatingDialog } from "@/components/reads/rating-dialog"
 import { RoundResults } from "@/components/voting/round-results"
 import { Button } from "@/components/ui/button"
 import { averageRating, formatRating, formatReadMonth } from "@/lib/reads"
@@ -80,6 +81,7 @@ export default async function ReadPage({ params }: { params: Promise<{ clubId: s
       (a.profiles?.display_name ?? "").localeCompare(b.profiles?.display_name ?? ""),
   )
   const average = averageRating(ratings.map((rating) => rating.score_halves))
+  const myRating = ratings.find((rating) => rating.user_id === user.id) ?? null
 
   // Results can name books that were withdrawn after the vote, so include the
   // ballot's own book list.
@@ -148,6 +150,27 @@ export default async function ReadPage({ params }: { params: Promise<{ clubId: s
             <p className="text-xs text-muted-foreground">
               {ratings.length} of {memberCount ?? ratings.length} members
             </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
+              {myRating ? (
+                <>
+                  You gave it <span className="font-mono text-foreground">{formatRating(myRating.score_halves / 2)}</span>
+                </>
+              ) : (
+                "You haven’t rated this one yet."
+              )}
+            </p>
+            <RatingDialog
+              clubId={club.id}
+              readId={read.id}
+              readNumber={read.number}
+              title={book?.title ?? `read #${read.number}`}
+              currentHalves={myRating?.score_halves ?? null}
+              triggerLabel={myRating ? "Change rating" : "Rate it"}
+              triggerVariant={myRating ? "outline" : "default"}
+            />
           </div>
 
           {average !== null ? (
