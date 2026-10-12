@@ -5,7 +5,7 @@ import { BookCover } from "@/components/books/book-cover"
 import { BookDetailsDialog } from "@/components/books/book-details-dialog"
 import { ReadDates } from "@/components/reads/read-dates"
 import { RatingDialog } from "@/components/reads/rating-dialog"
-import { RoundResults } from "@/components/voting/round-results"
+import { VoteResults } from "@/components/voting/vote-results"
 import { Button } from "@/components/ui/button"
 import { averageRating, formatRating, formatReadMonth } from "@/lib/reads"
 import { createClient } from "@/lib/supabase/server"
@@ -243,7 +243,7 @@ export default async function ReadPage({ params }: { params: Promise<{ clubId: s
       {sessionRow?.results ? (
         <section className="flex flex-col gap-5 border-t border-border pt-8">
           <SectionLabel>The vote</SectionLabel>
-          <RoundResults results={sessionRow.results} booksById={booksById} winner={undefined} />
+          <VoteResults results={sessionRow.results} booksById={booksById} />
         </section>
       ) : null}
     </main>

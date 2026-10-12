@@ -12,15 +12,15 @@ const steps = [
     body: "Instead of one vote, each person orders the shortlist from first choice to last.",
   },
   {
-    title: "Runoff",
-    body: "Last-place books drop out and their ballots transfer, until one title holds a real majority.",
+    title: "Agree",
+    body: "Every ranking earns points, and books near the bottom of anyone's list earn far fewer, so the winner is the one the most people are happy with.",
   },
 ]
 
-const sampleRound = [
-  { title: "The Left Hand of Darkness", votes: 4, leading: true },
-  { title: "Piranesi", votes: 3, leading: false },
-  { title: "The Overstory", votes: 2, leading: false },
+const sampleStandings = [
+  { title: "The Left Hand of Darkness", points: 24.1, leading: true },
+  { title: "Piranesi", points: 15.0, leading: false },
+  { title: "The Overstory", points: 13.4, leading: false },
 ]
 
 export default async function HomePage() {
@@ -51,8 +51,8 @@ export default async function HomePage() {
           Settle the next read without the group chat war.
         </h1>
         <p className="max-w-md text-base leading-relaxed text-muted-foreground text-pretty">
-          Margin runs your book club&apos;s shortlist as an instant-runoff election, so the winner is the book the
-          most people can genuinely live with.
+          Margin turns your book club&apos;s ranked ballots into a consensus pick, so the winner is the book the most
+          people can genuinely live with.
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Button
@@ -73,27 +73,28 @@ export default async function HomePage() {
 
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-6">
         <div className="flex items-baseline justify-between gap-3">
-          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Round 2</p>
-          <p className="font-mono text-xs text-muted-foreground">9 ballots</p>
+          <p className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">Results</p>
+          <p className="font-mono text-xs text-muted-foreground">5 ballots</p>
         </div>
         <ul className="flex flex-col gap-3">
-          {sampleRound.map((row) => (
+          {sampleStandings.map((row) => (
             <li key={row.title} className="flex min-w-0 flex-col gap-1.5">
               <div className="flex min-w-0 items-baseline justify-between gap-3">
                 <span className="min-w-0 truncate text-sm">{row.title}</span>
-                <span className="shrink-0 font-mono text-xs text-muted-foreground">{row.votes}</span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground">{row.points} pts</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
                 <div
                   className={row.leading ? "h-full rounded-full bg-primary" : "h-full rounded-full bg-chart-3"}
-                  style={{ width: `${(row.votes / 5) * 100}%` }}
+                  style={{ width: `${(row.points / 25) * 100}%` }}
                 />
               </div>
             </li>
           ))}
         </ul>
         <p className="border-t border-border pt-4 text-xs leading-relaxed text-muted-foreground">
-          The last-place title is out. Its ballots move to each voter&apos;s next choice.
+          Piranesi had the most first-place votes, but two people ranked it last. Everyone had The Left Hand of
+          Darkness in their top two.
         </p>
       </div>
 

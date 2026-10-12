@@ -2,7 +2,7 @@
 
 import { cleanCategories, fetchOpenLibraryWork } from "@/lib/books"
 import { createClient } from "@/lib/supabase/server"
-import type { ActionState, BookSearchResult, ManualBookInput } from "@/lib/types"
+import type { ActionState, BookSearchResult, ManualBookInput, TallyResults, VotingMethod } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -25,6 +25,8 @@ const RPC_MESSAGES: Record<string, string> = {
   nomination_limit_reached: "You’ve nominated as many books as this club allows for one read.",
   read_not_current: "Only the current read can be marked finished.",
   read_not_found: "That read no longer exists.",
+  session_not_tied: "That vote isn’t waiting on a tiebreak.",
+  book_not_tied: "Pick one of the tied books.",
   next_read_already_open: "The next read is already open.",
   discussion_before_start: "The discussion date can’t be before the start date.",
   cannot_reopen: "Only the most recently finished read can be reopened, and only while nothing else is being read.",
@@ -228,7 +230,7 @@ export async function startVotingAction(clubId: string): Promise<ActionState> {
 
 export async function closeVotingAction(clubId: string, sessionId: string): Promise<ActionState> {
   const supabase = await createClient()
-  const { error } = await supabase.rpc("close_voting_session", { p_session_id: sessionId })
+  const { data, error } = await supabase.rpc("close_voting_session", { p_session_id: sessionId })
 
   if (error) {
     console.log("[v0] close_voting_session failed:", error.message)
@@ -236,7 +238,43 @@ export async function closeVotingAction(clubId: string, sessionId: string): Prom
   }
 
   revalidatePath(`/clubs/${clubId}`)
+  const results = data as TallyResults | null
+  if (results && !results.winner_book_id) return { success: "It’s a tie. Pick the winner from the tied books." }
   return { success: "Results are in." }
+}
+
+export async function resolveVoteTieAction(clubId: string, sessionId: string, bookId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("resolve_vote_tie", { p_session_id: sessionId, p_book_id: bookId })
+
+  if (error) {
+    console.log("[v0] resolve_vote_tie failed:", error.message)
+    return { error: friendly(error.message, "Could not pick the winner.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath("/clubs")
+  return { success: "Winner picked." }
+}
+
+export async function updateVotingMethodAction(clubId: string, method: VotingMethod): Promise<ActionState> {
+  if (method !== "consensus" && method !== "runoff") return { error: "Pick a voting method." }
+
+  const supabase = await createClient()
+  // RLS only lets the organizer update the club, so check a row actually changed.
+  const { data, error } = await supabase
+    .from("clubs")
+    .update({ voting_method: method })
+    .eq("id", clubId)
+    .select("id")
+
+  if (error || !data?.length) {
+    if (error) console.log("[v0] update voting method failed:", error.message)
+    return { error: "Only the club organizer can change the voting method." }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Voting method saved. It applies from the next vote." }
 }
 
 export async function finishReadAction(clubId: string, readId: string): Promise<ActionState> {

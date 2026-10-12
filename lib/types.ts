@@ -35,6 +35,7 @@ export type Club = {
   join_code: string
   current_book_id: string | null
   max_nominations_per_member: number
+  voting_method: VotingMethod
   created_at: string
 }
 
@@ -62,18 +63,45 @@ export type Read = {
   books: Book | null
 }
 
+export type VotingMethod = "consensus" | "runoff"
+
 export type RoundCount = { book_id: string; votes: number }
 
-export type TallyResults = {
+/** Instant-runoff results. Votes closed before consensus existed have no `method`. */
+export type RunoffResults = {
+  method?: "runoff"
   total_ballots: number
-  winner_book_id: string
-  rounds: { round: number; active_ballots: number; counts: RoundCount[] }[]
+  winner_book_id: string | null
+  decided_by?: string | null
+  tied_book_ids?: string[] | null
+  rounds: {
+    round: number
+    active_ballots: number
+    counts: RoundCount[]
+    eliminated?: string[]
+    tiebreak?: string | null
+  }[]
 }
+
+export type ConsensusStanding = { book_id: string; points: number; firsts: number; lasts: number }
+
+export type ConsensusResults = {
+  method: "consensus"
+  total_ballots: number
+  book_count: number
+  winner_book_id: string | null
+  decided_by: string | null
+  tied_book_ids: string[] | null
+  standings: ConsensusStanding[]
+}
+
+export type TallyResults = RunoffResults | ConsensusResults
 
 export type VotingSession = {
   id: string
   club_id: string
-  status: "active" | "completed"
+  status: "active" | "tied" | "completed"
+  method: VotingMethod
   started_at: string
   ended_at: string | null
   winning_book_id: string | null
