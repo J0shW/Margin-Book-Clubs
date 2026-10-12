@@ -8,6 +8,7 @@ import { redirect } from "next/navigation"
 
 const RPC_MESSAGES: Record<string, string> = {
   invalid_join_code: "No club matches that code.",
+  too_many_attempts: "Too many wrong codes. Wait a few minutes and try again.",
   not_club_owner: "Only the club organizer can do that.",
   not_club_member: "You are not a member of this club.",
   session_already_active: "A vote is already running for this club.",
@@ -48,7 +49,8 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
   const code = String(formData.get("code") ?? "")
     .trim()
     .toUpperCase()
-  if (code.length !== 6) return { error: "Join codes are six characters." }
+  // Older clubs have six-character codes; newer ones have ten.
+  if (code.length !== 6 && code.length !== 10) return { error: "Join codes are six or ten characters." }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("join_club", { p_code: code })
@@ -57,6 +59,9 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
     console.log("[v0] join_club failed:", error.message)
     return { error: friendly(error.message, "Could not join that club. Try again.") }
   }
+  // An unknown code returns null rather than raising, so the attempt is
+  // recorded for rate limiting.
+  if (!data) return { error: RPC_MESSAGES.invalid_join_code }
 
   revalidatePath("/clubs")
   redirect(`/clubs/${data as string}`)
