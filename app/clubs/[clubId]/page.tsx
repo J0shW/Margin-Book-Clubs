@@ -36,6 +36,17 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   return <p className="text-xs uppercase tracking-[0.24em] text-primary">{children}</p>
 }
 
+function ReadDetailsLink({ clubId, number }: { clubId: string; number: number }) {
+  return (
+    <Link
+      href={`/clubs/${clubId}/reads/${number}`}
+      className="w-fit text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
+    >
+      Nominations, vote, and details
+    </Link>
+  )
+}
+
 function VoteResults({ session, booksById }: { session: SessionRow; booksById: Map<string, Book> }) {
   if (!session.results) return null
   return (
@@ -266,6 +277,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
             ) : null}
 
             {currentSession ? <VoteResults session={currentSession} booksById={booksById} /> : null}
+            <ReadDetailsLink clubId={club.id} number={currentRead.number} />
           </>
         ) : (
           <p className="text-sm text-muted-foreground">Nothing is being read right now.</p>
@@ -414,6 +426,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
               </div>
             ) : null}
             {nextSession ? <VoteResults session={nextSession} booksById={booksById} /> : null}
+            <ReadDetailsLink clubId={club.id} number={nextRead.number} />
           </>
         ) : null}
       </section>
