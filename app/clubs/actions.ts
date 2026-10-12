@@ -24,6 +24,10 @@ const RPC_MESSAGES: Record<string, string> = {
   nominations_closed: "Nominations for this read are closed.",
   nomination_limit_reached: "You’ve nominated as many books as this club allows for one read.",
   read_not_current: "Only the current read can be marked finished.",
+  read_not_found: "That read no longer exists.",
+  next_read_already_open: "The next read is already open.",
+  discussion_before_start: "The discussion date can’t be before the start date.",
+  cannot_reopen: "Only the most recently finished read can be reopened, and only while nothing else is being read.",
 }
 
 function friendly(message: string | undefined, fallback: string) {
@@ -247,6 +251,105 @@ export async function finishReadAction(clubId: string, readId: string): Promise<
   revalidatePath(`/clubs/${clubId}`)
   revalidatePath("/clubs")
   return { success: "Read marked finished." }
+}
+
+/** Accepts "" (an empty date input) as no date. */
+function readDate(value: string | null): string | null {
+  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
+}
+
+export async function startNextReadAction(
+  clubId: string,
+  startDate: string | null,
+  discussionDate: string | null,
+): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("start_next_read", {
+    p_club_id: clubId,
+    p_start_date: readDate(startDate),
+    p_discussion_date: readDate(discussionDate),
+  })
+
+  if (error) {
+    console.log("[v0] start_next_read failed:", error.message)
+    return { error: friendly(error.message, "Could not start the next read.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Next read is open for nominations." }
+}
+
+export async function updateReadDatesAction(
+  clubId: string,
+  readId: string,
+  startDate: string | null,
+  discussionDate: string | null,
+): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("update_read_dates", {
+    p_read_id: readId,
+    p_start_date: readDate(startDate),
+    p_discussion_date: readDate(discussionDate),
+  })
+
+  if (error) {
+    console.log("[v0] update_read_dates failed:", error.message)
+    return { error: friendly(error.message, "Could not save those dates.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Dates saved." }
+}
+
+export async function reopenReadAction(clubId: string, readId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("reopen_read", { p_read_id: readId })
+
+  if (error) {
+    console.log("[v0] reopen_read failed:", error.message)
+    return { error: friendly(error.message, "Could not reopen that read.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath("/clubs")
+  return { success: "Read reopened." }
+}
+
+/**
+ * Nominates books already in the catalog, e.g. ones that didn't win last time.
+ * Each is inserted separately so one duplicate doesn't block the rest; stops
+ * at the first other error (nominations closed, or the per-member cap).
+ */
+export async function renominateBooksAction(clubId: string, bookIds: string[]): Promise<ActionState> {
+  if (!Array.isArray(bookIds) || bookIds.length === 0) return { error: "Pick at least one book." }
+
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) return { error: "Sign in to nominate a book." }
+
+  let added = 0
+  for (const bookId of bookIds) {
+    const { error } = await supabase
+      .from("club_candidate_books")
+      .insert({ club_id: clubId, book_id: bookId, added_by: user.id })
+
+    if (!error) {
+      added += 1
+      continue
+    }
+    if (error.code === "23505") continue
+
+    console.log("[v0] renominate failed:", error.message)
+    revalidatePath(`/clubs/${clubId}`)
+    const reason = friendly(error.message, "Could not nominate that book.")
+    return { error: added > 0 ? `Added ${added}. ${reason}` : reason }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  if (added === 0) return { error: "Those books are already nominated." }
+  return { success: added === 1 ? "Book nominated." : `${added} books nominated.` }
 }
 
 export async function submitBallotAction(
