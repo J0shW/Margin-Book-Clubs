@@ -1,7 +1,16 @@
+import { parseQuery, rankResults } from "@/lib/book-search"
 import { cleanAuthors, cleanCategories, cleanDescription } from "@/lib/books"
 import { createClient } from "@/lib/supabase/server"
 import type { BookSearchResult } from "@/lib/types"
 import { type NextRequest, NextResponse } from "next/server"
+
+/** How many results the dialog shows. */
+const RESULT_LIMIT = 12
+/**
+ * How many to ask each provider for. A query of only the finished words
+ * ("Operation") is broad, so fetch a wide pool for ranking to pick from.
+ */
+const FETCH_LIMIT = 40
 
 type GoogleVolume = {
   id: string
@@ -31,7 +40,7 @@ type OpenLibraryDoc = {
 async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> {
   const url = new URL("https://www.googleapis.com/books/v1/volumes")
   url.searchParams.set("q", q)
-  url.searchParams.set("maxResults", "12")
+  url.searchParams.set("maxResults", String(FETCH_LIMIT))
   url.searchParams.set("printType", "books")
   url.searchParams.set("orderBy", "relevance")
   // Serverless hosts (Vercel included) call out from IPs Google can't
@@ -79,7 +88,7 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
 async function searchOpenLibrary(q: string): Promise<BookSearchResult[] | null> {
   const url = new URL("https://openlibrary.org/search.json")
   url.searchParams.set("q", q)
-  url.searchParams.set("limit", "12")
+  url.searchParams.set("limit", String(FETCH_LIMIT))
   url.searchParams.set(
     "fields",
     "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,first_sentence,subject",
@@ -123,24 +132,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 })
   }
 
-  const q = request.nextUrl.searchParams.get("q")?.trim() ?? ""
-  if (q.length < 2) {
+  // Not trimmed here: a trailing space tells parseQuery the last word is done.
+  const query = parseQuery(request.nextUrl.searchParams.get("q") ?? "")
+  if (query.full.length < 2) {
     return NextResponse.json({ results: [] })
   }
 
+  // Search the text as typed, plus (mid-word) just the finished words, since
+  // providers can't prefix-match the word still being typed. Ranking then
+  // promotes results whose words start with that partial word.
+  const queries = query.completed ? [query.full, query.completed] : [query.full]
+
   // Google Books first, then Open Library when it is rate limited or down.
-  const google = await searchGoogleBooks(q)
-  if (google && google.length > 0) {
-    return NextResponse.json({ results: google })
+  const google = await Promise.all(queries.map(searchGoogleBooks))
+  const googleResults = rankResults(google, query, RESULT_LIMIT)
+  if (googleResults.length > 0) {
+    return NextResponse.json({ results: googleResults })
   }
 
-  const openLibrary = await searchOpenLibrary(q)
-  if (openLibrary) {
-    return NextResponse.json({ results: openLibrary })
+  const openLibrary = await Promise.all(queries.map(searchOpenLibrary))
+  if (openLibrary.some((list) => list !== null)) {
+    return NextResponse.json({ results: rankResults(openLibrary, query, RESULT_LIMIT) })
   }
 
-  if (google) {
-    return NextResponse.json({ results: google })
+  if (google.some((list) => list !== null)) {
+    return NextResponse.json({ results: [] })
   }
 
   return NextResponse.json({ error: "search_failed" }, { status: 502 })
