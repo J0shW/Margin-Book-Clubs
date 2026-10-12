@@ -21,6 +21,9 @@ const RPC_MESSAGES: Record<string, string> = {
   invalid_book_in_ballot: "Your ballot references a book that isn’t in this vote.",
   duplicate_book_in_ballot: "Each book can only be ranked once.",
   empty_ballot: "Rank at least one book.",
+  nominations_closed: "Nominations for this read are closed.",
+  nomination_limit_reached: "You’ve nominated as many books as this club allows for one read.",
+  read_not_current: "Only the current read can be marked finished.",
 }
 
 function friendly(message: string | undefined, fallback: string) {
@@ -143,7 +146,7 @@ export async function nominateBookAction(clubId: string, book: BookSearchResult)
   if (error) {
     if (error.code === "23505") return { error: "That book is already nominated." }
     console.log("[v0] nominate failed:", error.message)
-    return { error: "Could not nominate that book." }
+    return { error: friendly(error.message, "Could not nominate that book.") }
   }
 
   revalidatePath(`/clubs/${clubId}`)
@@ -186,7 +189,7 @@ export async function addManualBookAction(clubId: string, input: ManualBookInput
   if (error) {
     if (error.code === "23505") return { error: "That book is already nominated." }
     console.log("[v0] manual add failed:", error.message)
-    return { error: "Could not add that book." }
+    return { error: friendly(error.message, "Could not add that book.") }
   }
 
   revalidatePath(`/clubs/${clubId}`)
@@ -230,6 +233,20 @@ export async function closeVotingAction(clubId: string, sessionId: string): Prom
 
   revalidatePath(`/clubs/${clubId}`)
   return { success: "Results are in." }
+}
+
+export async function finishReadAction(clubId: string, readId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("finish_read", { p_read_id: readId })
+
+  if (error) {
+    console.log("[v0] finish_read failed:", error.message)
+    return { error: friendly(error.message, "Could not mark the read finished.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath("/clubs")
+  return { success: "Read marked finished." }
 }
 
 export async function submitBallotAction(
