@@ -8,6 +8,9 @@ import { redirect } from "next/navigation"
 
 const RPC_MESSAGES: Record<string, string> = {
   invalid_join_code: "No club matches that code.",
+  too_many_attempts: "Too many wrong codes. Wait a few minutes and try again.",
+  removed_from_club: "The organizer removed you from this club.",
+  cannot_remove_owner: "The organizer can’t be removed.",
   not_club_owner: "Only the club organizer can do that.",
   not_club_member: "You are not a member of this club.",
   session_already_active: "A vote is already running for this club.",
@@ -57,6 +60,9 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
     console.log("[v0] join_club failed:", error.message)
     return { error: friendly(error.message, "Could not join that club. Try again.") }
   }
+  // An unknown code returns null rather than raising, so the attempt is
+  // recorded for rate limiting.
+  if (!data) return { error: RPC_MESSAGES.invalid_join_code }
 
   revalidatePath("/clubs")
   redirect(`/clubs/${data as string}`)
@@ -252,6 +258,19 @@ export async function submitBallotAction(
 
   revalidatePath(`/clubs/${clubId}`)
   return { success: "Ballot submitted." }
+}
+
+export async function removeMemberAction(clubId: string, userId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("remove_club_member", { p_club_id: clubId, p_user_id: userId })
+
+  if (error) {
+    console.log("[v0] remove_club_member failed:", error.message)
+    return { error: friendly(error.message, "Could not remove that member.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Member removed." }
 }
 
 export async function leaveClubAction(clubId: string): Promise<ActionState> {

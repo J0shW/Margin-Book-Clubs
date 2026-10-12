@@ -56,7 +56,7 @@ export function ClubEntryForms() {
               maxLength={6}
               autoCapitalize="characters"
               spellCheck={false}
-              placeholder="A1B2C3"
+              placeholder="K7MQ2X"
               className="font-mono uppercase tracking-[0.3em]"
             />
             <FieldDescription>Six characters, from whoever runs the club.</FieldDescription>

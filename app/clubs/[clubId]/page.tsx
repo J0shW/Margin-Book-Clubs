@@ -4,6 +4,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { NominateBookDialog } from "@/components/books/nominate-book-dialog"
 import { CandidateList } from "@/components/clubs/candidate-list"
 import { JoinCode } from "@/components/clubs/join-code"
+import { MemberList } from "@/components/clubs/member-list"
 import { CloseVotingButton, LeaveClubButton, StartVotingButton } from "@/components/clubs/organizer-controls"
 import { RankedBallot } from "@/components/voting/ranked-ballot"
 import { RoundResults } from "@/components/voting/round-results"
@@ -184,15 +185,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
 
       <section className="flex flex-col gap-4 border-t border-border pt-8">
         <h2 className="font-serif text-2xl">Members</h2>
-        <ul className="flex flex-wrap gap-2">
-          {members.map((member) => (
-            <li key={member.user_id}>
-              <Badge variant={member.user_id === club.owner_id ? "default" : "outline"}>
-                {member.profiles?.display_name ?? "Member"}
-              </Badge>
-            </li>
-          ))}
-        </ul>
+        <MemberList clubId={club.id} members={members} ownerId={club.owner_id} isOwner={isOwner} />
       </section>
     </main>
   )
