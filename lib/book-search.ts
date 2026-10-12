@@ -21,10 +21,18 @@ export type ParsedQuery = {
    * separate query to run (a single word, or input that ends in a space).
    */
   completed: string | null
-  /** Normalized finished words, used for ranking. */
+  /** Normalized finished words, each matched as a prefix of a title/author word. */
   completedWords: string[]
   /** The normalized word still being typed, matched as a prefix. */
   partial: string | null
+  /** Set when the whole query is an ISBN-10 or ISBN-13. */
+  isbn: string | null
+}
+
+/** Recognizes ISBN-10 and ISBN-13, with or without hyphens and spaces. */
+function parseIsbn(value: string): string | null {
+  const compact = value.replace(/[-\s]/g, "").toUpperCase()
+  return /^(\d{9}[\dX]|97[89]\d{10})$/.test(compact) ? compact : null
 }
 
 /**
@@ -35,16 +43,18 @@ export type ParsedQuery = {
  */
 export function parseQuery(raw: string): ParsedQuery {
   const full = raw.trim()
+  const isbn = parseIsbn(full)
   const endsWithSpace = /\s$/.test(raw)
   const rawWords = full.split(/\s+/).filter(Boolean)
 
-  if (endsWithSpace || rawWords.length < 2) {
+  if (isbn || endsWithSpace || rawWords.length < 2) {
     return {
       full,
       completed: null,
       completedWords: words(full),
-      // A lone word may still be mid-typing; rank on it as a prefix too.
-      partial: endsWithSpace ? null : (words(full).at(-1) ?? null),
+      // A lone word may still be mid-typing; match it as a prefix too.
+      partial: isbn || endsWithSpace ? null : (words(full).at(-1) ?? null),
+      isbn,
     }
   }
 
@@ -59,31 +69,41 @@ export function parseQuery(raw: string): ParsedQuery {
     // piece but the final one is already finished.
     completedWords: [...completedWords, ...partialWords.slice(0, -1)],
     partial: partialWords.at(-1) ?? null,
+    isbn: null,
   }
-}
-
-/** How many of the query's words a result's title or authors contain. */
-function score(result: BookSearchResult, query: ParsedQuery): number {
-  const haystack = words([result.title, ...result.authors].join(" "))
-  let total = 0
-
-  for (const word of query.completedWords) {
-    // Prefix rather than exact, so "operation" still credits "Operations".
-    if (haystack.some((candidate) => candidate.startsWith(word))) total += 1
-  }
-
-  if (query.partial && !query.completedWords.includes(query.partial)) {
-    if (haystack.some((candidate) => candidate.startsWith(query.partial!))) total += 1
-  }
-
-  return total
 }
 
 /**
- * Merges result lists (earlier lists win on duplicates), then stably sorts
- * them so results matching more of the query come first. Results that match
- * nothing are kept, not dropped: an ISBN search matches no title words but
- * the provider's own ordering is still right.
+ * True when every word of the query starts a word of the result's title or
+ * authors. Providers also match on a book's full text and subjects, which is
+ * how a war dictionary turns up for "Operation boun"; this keeps only books
+ * whose title or author is actually what was typed.
+ */
+function matchesTitleOrAuthor(result: BookSearchResult, query: ParsedQuery): boolean {
+  const haystack = words([result.title, ...result.authors].join(" "))
+  const needles = query.partial ? [...query.completedWords, query.partial] : query.completedWords
+  return needles.every((needle) => haystack.some((candidate) => candidate.startsWith(needle)))
+}
+
+/**
+ * Results without an author or cover are nearly always government reports,
+ * court records, and other scanned reference material, not club picks.
+ */
+function quality(result: BookSearchResult): number {
+  return (result.authors.length > 0 ? 1 : 0) + (result.coverImageUrl ? 1 : 0)
+}
+
+/** Hardcover, paperback, ebook and reprints share a main title and author. */
+function editionKey(result: BookSearchResult): string {
+  const mainTitle = result.title.split(":")[0]
+  return `${words(mainTitle).join(" ")}|${words(result.authors[0] ?? "").join(" ")}`
+}
+
+/**
+ * Merges result lists (earlier lists win on duplicates), keeps only results
+ * whose title or author matches the query, orders likely-real books first
+ * (otherwise keeping the providers' relevance order), and collapses editions
+ * of the same book into one row.
  */
 export function rankResults(
   lists: (BookSearchResult[] | null)[],
@@ -101,9 +121,24 @@ export function rankResults(
     }
   }
 
-  return merged
-    .map((result, index) => ({ result, index, score: score(result, query) }))
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .slice(0, limit)
+  // An ISBN identifies one edition exactly; there's nothing to filter.
+  if (query.isbn) return merged.slice(0, limit)
+
+  const ordered = merged
+    .filter((result) => matchesTitleOrAuthor(result, query))
+    .map((result, index) => ({ result, index, quality: quality(result) }))
+    .sort((a, b) => b.quality - a.quality || a.index - b.index)
     .map(({ result }) => result)
+
+  const editions = new Set<string>()
+  const unique: BookSearchResult[] = []
+  for (const result of ordered) {
+    const key = editionKey(result)
+    if (editions.has(key)) continue
+    editions.add(key)
+    unique.push(result)
+    if (unique.length >= limit) break
+  }
+
+  return unique
 }
