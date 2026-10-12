@@ -50,7 +50,9 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
     const timer = setTimeout(async () => {
       setSearching(true)
       try {
-        const res = await fetch(`/api/books/search?q=${encodeURIComponent(term)}`, {
+        // Send the untrimmed query: a trailing space marks the last word as
+        // finished, which changes how the server matches it.
+        const res = await fetch(`/api/books/search?q=${encodeURIComponent(query)}`, {
           signal: controller.signal,
         })
         const data = await res.json()
