@@ -53,13 +53,13 @@ export function ClubEntryForms() {
               id="join-code"
               name="code"
               required
-              maxLength={10}
+              maxLength={6}
               autoCapitalize="characters"
               spellCheck={false}
-              placeholder="K7MQ2XPA9R"
+              placeholder="K7MQ2X"
               className="font-mono uppercase tracking-[0.3em]"
             />
-            <FieldDescription>Ask whoever runs the club for it.</FieldDescription>
+            <FieldDescription>Six characters, from whoever runs the club.</FieldDescription>
           </Field>
           <Button type="submit" disabled={joining} className="w-fit">
             {joining ? <Spinner data-icon="inline-start" /> : null}

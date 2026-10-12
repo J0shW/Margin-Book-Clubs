@@ -25,20 +25,18 @@ revoke execute on function public.is_club_owner(uuid) from anon, public;
 -- Only ever fired by the auth.users trigger.
 revoke execute on function public.handle_new_user() from anon, authenticated, public;
 
--- 3. The organizer can't leave their own club (it would leave the club with an
---    owner who can't see its members). They can still remove other members,
---    and anyone else can still leave.
+-- 3. Members can leave, but the organizer can't (it would leave the club with
+--    an owner who can't see its members). The organizer removes other members
+--    through remove_club_member (section 5), which also stops them rejoining.
 drop policy if exists club_members_delete on public.club_members;
 create policy club_members_delete on public.club_members for delete to authenticated
-  using (
-    (user_id = auth.uid() and not public.is_club_owner(club_id))
-    or (user_id <> auth.uid() and public.is_club_owner(club_id))
-  );
+  using (user_id = auth.uid() and not public.is_club_owner(club_id));
 
 -- 4. Join codes were 6 hex characters (~16.7M possibilities) with no limit on
---    guesses. New clubs get 10 characters from a 32-letter alphabet that skips
---    look-alikes (0/O, 1/I), ~10^15 possibilities. Existing codes keep working
---    because people have already shared them, so guesses are also rate limited.
+--    guesses. They stay 6 characters so they're quick to type, but new clubs
+--    draw from a 32-letter alphabet that skips look-alikes (0/O, 1/I), ~1.07B
+--    possibilities. Existing codes keep working because people have already
+--    shared them, and guesses are rate limited below.
 create or replace function public.generate_join_code()
 returns text
 language plpgsql
@@ -50,7 +48,7 @@ declare
   -- gen_random_uuid() is version 4: bytes 6 and 8 carry fixed version and
   -- variant bits, so draw only from the fully random bytes. 256 is a multiple
   -- of 32, so taking each byte mod 32 is unbiased.
-  v_positions constant int[] := array[0, 1, 2, 3, 4, 5, 7, 9, 10, 11];
+  v_positions constant int[] := array[0, 1, 2, 3, 4, 5];
   v_bytes bytea := uuid_send(gen_random_uuid());
   v_code text := '';
   v_position int;
@@ -105,6 +103,17 @@ create index if not exists join_attempts_user_time_idx on public.join_attempts(u
 alter table public.join_attempts enable row level security;
 revoke all on public.join_attempts from anon, authenticated;
 
+-- People the organizer removed, who can't rejoin with the code. Read and
+-- written only by remove_club_member and join_club.
+create table if not exists public.club_removed_members (
+  club_id uuid not null references public.clubs(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  removed_at timestamptz not null default now(),
+  primary key (club_id, user_id)
+);
+alter table public.club_removed_members enable row level security;
+revoke all on public.club_removed_members from anon, authenticated;
+
 -- An unknown code now returns null instead of raising, because raising would
 -- roll back the attempt being recorded.
 create or replace function public.join_club(p_code text)
@@ -118,6 +127,14 @@ declare
 begin
   if auth.uid() is null then
     raise exception 'not authenticated';
+  end if;
+
+  if exists (
+    select 1 from public.club_removed_members r
+    join public.clubs c on c.id = r.club_id
+    where c.join_code = upper(trim(p_code)) and r.user_id = auth.uid()
+  ) then
+    raise exception 'removed_from_club';
   end if;
 
   if (
@@ -150,3 +167,33 @@ revoke execute on function public.create_club(text) from anon, public;
 revoke execute on function public.join_club(text) from anon, public;
 grant execute on function public.create_club(text) to authenticated;
 grant execute on function public.join_club(text) to authenticated;
+
+-- 5. Let the organizer remove a member and keep them from rejoining with the
+--    code, for when someone guesses or is given a code they shouldn't have.
+create or replace function public.remove_club_member(p_club_id uuid, p_user_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from public.clubs c where c.id = p_club_id and c.owner_id = auth.uid()) then
+    raise exception 'not_club_owner';
+  end if;
+  if p_user_id = auth.uid() then
+    raise exception 'cannot_remove_owner';
+  end if;
+
+  delete from public.club_members m where m.club_id = p_club_id and m.user_id = p_user_id;
+  if not found then
+    raise exception 'not_club_member';
+  end if;
+
+  insert into public.club_removed_members (club_id, user_id)
+  values (p_club_id, p_user_id)
+  on conflict do nothing;
+end;
+$$;
+
+revoke execute on function public.remove_club_member(uuid, uuid) from anon, public;
+grant execute on function public.remove_club_member(uuid, uuid) to authenticated;

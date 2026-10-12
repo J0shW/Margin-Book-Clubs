@@ -9,6 +9,8 @@ import { redirect } from "next/navigation"
 const RPC_MESSAGES: Record<string, string> = {
   invalid_join_code: "No club matches that code.",
   too_many_attempts: "Too many wrong codes. Wait a few minutes and try again.",
+  removed_from_club: "The organizer removed you from this club.",
+  cannot_remove_owner: "The organizer can’t be removed.",
   not_club_owner: "Only the club organizer can do that.",
   not_club_member: "You are not a member of this club.",
   session_already_active: "A vote is already running for this club.",
@@ -49,8 +51,7 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
   const code = String(formData.get("code") ?? "")
     .trim()
     .toUpperCase()
-  // Older clubs have six-character codes; newer ones have ten.
-  if (code.length !== 6 && code.length !== 10) return { error: "Join codes are six or ten characters." }
+  if (code.length !== 6) return { error: "Join codes are six characters." }
 
   const supabase = await createClient()
   const { data, error } = await supabase.rpc("join_club", { p_code: code })
@@ -257,6 +258,19 @@ export async function submitBallotAction(
 
   revalidatePath(`/clubs/${clubId}`)
   return { success: "Ballot submitted." }
+}
+
+export async function removeMemberAction(clubId: string, userId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("remove_club_member", { p_club_id: clubId, p_user_id: userId })
+
+  if (error) {
+    console.log("[v0] remove_club_member failed:", error.message)
+    return { error: friendly(error.message, "Could not remove that member.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Member removed." }
 }
 
 export async function leaveClubAction(clubId: string): Promise<ActionState> {
