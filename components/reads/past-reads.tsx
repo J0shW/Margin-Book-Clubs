@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useTransition } from "react"
 import { StarIcon } from "lucide-react"
 import { toast } from "sonner"
@@ -37,12 +38,17 @@ export function PastReads({ clubId, reads, averages, reopenableId }: Props) {
         const when = read.discussion_date ?? read.finished_at
         return (
           <li key={read.id} className="flex items-center gap-3 border-t border-border py-3">
-            <span className="w-7 shrink-0 font-mono text-xs text-muted-foreground">#{read.number}</span>
-            <BookCover src={read.books?.cover_image_url ?? null} title={read.books?.title ?? "?"} className="w-10" />
-            <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-              <p className="text-sm font-medium text-pretty">{read.books?.title ?? "Unknown book"}</p>
-              <p className="text-xs text-muted-foreground">{when ? formatReadMonth(when.slice(0, 10)) : null}</p>
-            </div>
+            <Link
+              href={`/clubs/${clubId}/reads/${read.number}`}
+              className="flex min-w-0 flex-1 items-center gap-3 transition-colors hover:text-primary"
+            >
+              <span className="w-7 shrink-0 font-mono text-xs text-muted-foreground">#{read.number}</span>
+              <BookCover src={read.books?.cover_image_url ?? null} title={read.books?.title ?? "?"} className="w-10" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="text-sm font-medium text-pretty">{read.books?.title ?? "Unknown book"}</span>
+                <span className="text-xs text-muted-foreground">{when ? formatReadMonth(when.slice(0, 10)) : null}</span>
+              </span>
+            </Link>
             <div className="flex shrink-0 flex-col items-end gap-1">
               {average !== undefined ? (
                 <span className="flex items-center gap-1 font-mono text-sm" aria-label={`Club average ${formatRating(average)} out of 10`}>
