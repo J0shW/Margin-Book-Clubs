@@ -22,6 +22,7 @@ type GoogleVolume = {
     categories?: string[]
     publishedDate?: string
     pageCount?: number
+    language?: string
     imageLinks?: { thumbnail?: string; smallThumbnail?: string }
   }
 }
@@ -35,6 +36,7 @@ type OpenLibraryDoc = {
   number_of_pages_median?: number
   first_sentence?: string[]
   subject?: string[]
+  language?: string[]
 }
 
 async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> {
@@ -43,6 +45,8 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
   url.searchParams.set("maxResults", String(FETCH_LIMIT))
   url.searchParams.set("printType", "books")
   url.searchParams.set("orderBy", "relevance")
+  // Clubs read in English; without this, translations crowd out the original.
+  url.searchParams.set("langRestrict", "en")
   // Serverless hosts (Vercel included) call out from IPs Google can't
   // geolocate, which the Books API rejects with "Cannot determine user
   // location for geographically restricted operation" unless a country
@@ -65,7 +69,8 @@ async function searchGoogleBooks(q: string): Promise<BookSearchResult[] | null> 
     const data = (await res.json()) as { items?: GoogleVolume[] }
 
     return (data.items ?? [])
-      .filter((item) => item.volumeInfo?.title)
+      // langRestrict is a ranking hint more than a filter, so check too.
+      .filter((item) => item.volumeInfo?.title && (item.volumeInfo.language ?? "en") === "en")
       .map((item) => {
         const info = item.volumeInfo!
         const thumb = info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null
@@ -91,7 +96,7 @@ async function searchOpenLibrary(q: string): Promise<BookSearchResult[] | null> 
   url.searchParams.set("limit", String(FETCH_LIMIT))
   url.searchParams.set(
     "fields",
-    "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,first_sentence,subject",
+    "key,title,author_name,first_publish_year,cover_i,number_of_pages_median,first_sentence,subject,language",
   )
 
   try {
@@ -105,7 +110,9 @@ async function searchOpenLibrary(q: string): Promise<BookSearchResult[] | null> 
     const data = (await res.json()) as { docs?: OpenLibraryDoc[] }
 
     return (data.docs ?? [])
-      .filter((doc) => doc.title && doc.key)
+      // A work lists every language it has editions in; keep those with an
+      // English edition, plus works with no language data at all.
+      .filter((doc) => doc.title && doc.key && (!doc.language?.length || doc.language.includes("eng")))
       .map((doc) => ({
         sourceId: `ol:${doc.key}`,
         title: doc.title!,
@@ -139,9 +146,14 @@ export async function GET(request: NextRequest) {
   }
 
   // Search the text as typed, plus (mid-word) just the finished words, since
-  // providers can't prefix-match the word still being typed. Ranking then
-  // promotes results whose words start with that partial word.
-  const queries = query.completed ? [query.full, query.completed] : [query.full]
+  // providers can't prefix-match the word still being typed. Both providers
+  // also match on a book's contents, so rankResults then keeps only results
+  // whose title or author matches.
+  const queries = query.isbn
+    ? [`isbn:${query.isbn}`]
+    : query.completed
+      ? [query.full, query.completed]
+      : [query.full]
 
   // Google Books first, then Open Library when it is rate limited or down.
   const google = await Promise.all(queries.map(searchGoogleBooks))
