@@ -1,8 +1,18 @@
 "use client"
 
-import { useTransition } from "react"
+import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { closeVotingAction, leaveClubAction, startVotingAction } from "@/app/clubs/actions"
+import { closeVotingAction, finishReadAction, leaveClubAction, startVotingAction } from "@/app/clubs/actions"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -65,5 +75,59 @@ export function LeaveClubButton({ clubId }: { clubId: string }) {
       {pending ? <Spinner data-icon="inline-start" /> : null}
       Leave club
     </Button>
+  )
+}
+
+export function FinishReadButton({
+  clubId,
+  readId,
+  title,
+  upNextTitle,
+}: {
+  clubId: string
+  readId: string
+  title: string
+  upNextTitle?: string
+}) {
+  const [pending, startTransition] = useTransition()
+  const [confirming, setConfirming] = useState(false)
+
+  function finish() {
+    startTransition(async () => {
+      const result = await finishReadAction(clubId, readId)
+      if (result?.error) toast.error(result.error)
+      else toast.success(result?.success ?? "Read marked finished.")
+    })
+  }
+
+  return (
+    <>
+      <Button variant="outline" size="sm" disabled={pending} onClick={() => setConfirming(true)}>
+        {pending ? <Spinner data-icon="inline-start" /> : null}
+        Mark finished
+      </Button>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Finish “{title}”?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Members will be able to rate it.
+              {upNextTitle ? ` “${upNextTitle}” becomes the current read.` : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirming(false)
+                finish()
+              }}
+            >
+              Mark finished
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }

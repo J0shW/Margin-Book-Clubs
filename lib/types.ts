@@ -34,6 +34,7 @@ export type Club = {
   owner_id: string
   join_code: string
   current_book_id: string | null
+  max_nominations_per_member: number
   created_at: string
 }
 
@@ -45,6 +46,20 @@ export type Candidate = {
   added_at: string
   books: Book
   profiles: { display_name: string | null } | null
+}
+
+export type ReadStatus = "nominating" | "voting" | "up_next" | "current" | "finished"
+
+export type Read = {
+  id: string
+  club_id: string
+  number: number
+  status: ReadStatus
+  book_id: string | null
+  start_date: string | null
+  discussion_date: string | null
+  finished_at: string | null
+  books: Book | null
 }
 
 export type RoundCount = { book_id: string; votes: number }

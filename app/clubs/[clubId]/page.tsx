@@ -5,14 +5,19 @@ import { NominateBookDialog } from "@/components/books/nominate-book-dialog"
 import { CandidateList } from "@/components/clubs/candidate-list"
 import { JoinCode } from "@/components/clubs/join-code"
 import { MemberList } from "@/components/clubs/member-list"
-import { CloseVotingButton, LeaveClubButton, StartVotingButton } from "@/components/clubs/organizer-controls"
+import {
+  CloseVotingButton,
+  FinishReadButton,
+  LeaveClubButton,
+  StartVotingButton,
+} from "@/components/clubs/organizer-controls"
 import { RankedBallot } from "@/components/voting/ranked-ballot"
 import { RoundResults } from "@/components/voting/round-results"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty"
 import { createClient } from "@/lib/supabase/server"
-import type { Book, Candidate, Club, VotingSession } from "@/lib/types"
+import type { Book, Candidate, Club, Read, VotingSession } from "@/lib/types"
 
 const BOOK_FIELDS =
   "id, source_id, title, authors, description, categories, cover_image_url, published_date, page_count"
@@ -31,12 +36,28 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
 
   const isOwner = club.owner_id === user.id
 
+  // The club's current read and its next one (nominating, voting, or up next).
+  const { data: readRows } = await supabase
+    .from("reads")
+    .select(`id, club_id, number, status, book_id, start_date, discussion_date, finished_at, books(${BOOK_FIELDS})`)
+    .eq("club_id", clubId)
+    .neq("status", "finished")
+  const reads = (readRows ?? []) as unknown as Read[]
+  const currentRead = reads.find((read) => read.status === "current") ?? null
+  const nextRead = reads.find((read) => read.status !== "current") ?? null
+  // The shortlist shown is the next read's, while it's still being nominated or
+  // voted on. With no next read, the first nomination opens one.
+  const shortlistReadId = nextRead && nextRead.status !== "up_next" ? nextRead.id : null
+  const nominationsOpen = !nextRead || nextRead.status === "nominating"
+
   const [{ data: candidateRows }, { data: memberRows }, { data: sessionRows }] = await Promise.all([
-    supabase
-      .from("club_candidate_books")
-      .select(`id, club_id, book_id, added_by, added_at, books(${BOOK_FIELDS}), profiles(display_name)`)
-      .eq("club_id", clubId)
-      .order("added_at", { ascending: true }),
+    shortlistReadId
+      ? supabase
+          .from("club_candidate_books")
+          .select(`id, club_id, book_id, added_by, added_at, books(${BOOK_FIELDS}), profiles(display_name)`)
+          .eq("read_id", shortlistReadId)
+          .order("added_at", { ascending: true })
+      : Promise.resolve({ data: [] }),
     supabase.from("club_members").select("user_id, profiles(display_name)").eq("club_id", clubId),
     supabase
       .from("voting_sessions")
@@ -83,7 +104,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
   const booksById = new Map<string, Book>(sessionBooks.map((b) => [b.id, b]))
   for (const candidate of candidates) booksById.set(candidate.books.id, candidate.books)
 
-  const currentBook = club.current_book_id ? booksById.get(club.current_book_id) : undefined
+  const winner = completedSession?.winning_book_id ? booksById.get(completedSession.winning_book_id) : undefined
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-10 px-5 pb-16 pt-10">
@@ -115,6 +136,34 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
         </div>
       </section>
 
+      {currentRead || nextRead?.status === "up_next" ? (
+        <section className="flex flex-col gap-3 border-t border-border pt-8">
+          {currentRead ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <p className="text-xs uppercase tracking-[0.24em] text-primary">Current read</p>
+                <p className="font-serif text-2xl leading-tight text-pretty">
+                  {currentRead.books?.title ?? "Unknown book"}
+                </p>
+              </div>
+              {isOwner ? (
+                <FinishReadButton
+                  clubId={club.id}
+                  readId={currentRead.id}
+                  title={currentRead.books?.title ?? "this book"}
+                  upNextTitle={nextRead?.status === "up_next" ? nextRead.books?.title : undefined}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {nextRead?.status === "up_next" ? (
+            <p className="text-sm text-muted-foreground">
+              Up next: <span className="text-foreground">{nextRead.books?.title ?? "Unknown book"}</span>
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+
       {activeSession ? (
         <section className="flex flex-col gap-5 border-t border-border pt-8">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -139,7 +188,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
       {completedSession?.results ? (
         <section className="flex flex-col gap-5 border-t border-border pt-8">
           <h2 className="font-serif text-2xl">Last round&apos;s results</h2>
-          <RoundResults results={completedSession.results} booksById={booksById} winner={currentBook} />
+          <RoundResults results={completedSession.results} booksById={booksById} winner={winner} />
         </section>
       ) : null}
 
@@ -149,12 +198,17 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
             Shortlist
             <span className="ml-2 font-sans text-sm text-muted-foreground">{candidates.length}</span>
           </h2>
-          <NominateBookDialog clubId={club.id} disabled={Boolean(activeSession)} />
+          <NominateBookDialog clubId={club.id} disabled={!nominationsOpen} />
         </div>
 
         {activeSession ? (
           <p className="text-sm text-muted-foreground">
             The shortlist is locked while a vote is running.
+          </p>
+        ) : null}
+        {nextRead?.status === "up_next" ? (
+          <p className="text-sm text-muted-foreground">
+            Nominations for the next read open once the current read is marked finished.
           </p>
         ) : null}
 
@@ -171,14 +225,14 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
             candidates={candidates}
             currentUserId={user.id}
             isOwner={isOwner}
-            locked={Boolean(activeSession)}
+            locked={!nominationsOpen}
           />
         )}
 
-        {isOwner && !activeSession ? (
+        {isOwner && nominationsOpen ? (
           <StartVotingButton clubId={club.id} disabled={candidates.length < 2} />
         ) : null}
-        {isOwner && !activeSession && candidates.length < 2 ? (
+        {isOwner && nominationsOpen && candidates.length < 2 ? (
           <p className="text-xs text-muted-foreground">Two nominations are needed before a vote can open.</p>
         ) : null}
       </section>
