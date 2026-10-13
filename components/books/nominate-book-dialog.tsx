@@ -77,7 +77,7 @@ export function NominateBookDialog({ clubId, disabled }: { clubId: string; disab
   function nominate(book: BookSearchResult) {
     setPendingId(book.sourceId)
     startTransition(async () => {
-      const result = await nominateBookAction(clubId, book)
+      const result = await nominateBookAction(clubId, book.sourceId)
       setPendingId(null)
       if (result?.error) {
         toast.error(result.error)

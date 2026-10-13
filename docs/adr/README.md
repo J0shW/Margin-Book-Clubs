@@ -17,3 +17,4 @@ it. New records use [`template.md`](template.md); the `adr` skill in
 | [0007](0007-half-point-ratings.md) | Rate finished reads from 0.5 to 10 in half points | Accepted |
 | [0008](0008-consensus-voting.md) | Count ranked ballots by consensus points by default | Accepted |
 | [0009](0009-supabase-keep-alive-cron.md) | Keep Supabase awake with a daily Vercel cron | Accepted |
+| [0010](0010-book-details-come-from-providers.md) | Book details come from the providers, not the browser | Accepted |

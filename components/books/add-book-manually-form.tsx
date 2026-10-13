@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
+import { validateManualBook } from "@/lib/manual-book"
 
 export function AddBookManuallyForm({ clubId, onAdded }: { clubId: string; onAdded: () => void }) {
   const [title, setTitle] = useState("")
@@ -17,27 +18,15 @@ export function AddBookManuallyForm({ clubId, onAdded }: { clubId: string; onAdd
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    if (title.trim().length < 1) {
-      toast.error("Give the book a title.")
-      return
-    }
-
-    const parsedPageCount = pageCount.trim() ? Number(pageCount) : null
-    if (parsedPageCount !== null && !Number.isFinite(parsedPageCount)) {
-      toast.error("Page count must be a number.")
+    const fields = { title, authors, publishedYear, pageCount }
+    const { error } = validateManualBook(fields)
+    if (error) {
+      toast.error(error)
       return
     }
 
     startTransition(async () => {
-      const result = await addManualBookAction(clubId, {
-        title,
-        authors: authors
-          .split(",")
-          .map((author) => author.trim())
-          .filter(Boolean),
-        publishedDate: publishedYear.trim() || null,
-        pageCount: parsedPageCount,
-      })
+      const result = await addManualBookAction(clubId, fields)
 
       if (result?.error) {
         toast.error(result.error)

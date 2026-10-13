@@ -36,6 +36,19 @@ export default async function SettingsPage() {
       </div>
 
       <SettingsForm currentName={profile?.display_name ?? ""} />
+
+      <section className="flex flex-col gap-3 border-t border-border pt-8">
+        <h2 className="text-xs uppercase tracking-[0.24em] text-primary">Password</h2>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">Signed in as {user.email}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/auth/reset-password">Change password</Link>}
+          />
+        </div>
+      </section>
     </main>
   )
 }

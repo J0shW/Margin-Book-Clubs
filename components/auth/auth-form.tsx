@@ -40,7 +40,17 @@ export function AuthForm({ mode, action }: Props) {
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="password">Password</FieldLabel>
+          <div className="flex items-baseline justify-between gap-3">
+            <FieldLabel htmlFor="password">Password</FieldLabel>
+            {isSignUp ? null : (
+              <Link
+                href="/auth/forgot-password"
+                className="text-sm text-muted-foreground underline underline-offset-4 hover:text-primary"
+              >
+                Forgot password?
+              </Link>
+            )}
+          </div>
           <Input
             id="password"
             name="password"
