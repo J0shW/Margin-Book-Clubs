@@ -1,8 +1,10 @@
 "use server"
 
+import { lookupBook } from "@/lib/book-sources"
 import { cleanCategories, fetchOpenLibraryWork } from "@/lib/books"
+import { type ManualBookFields, validateManualBook } from "@/lib/manual-book"
 import { createClient } from "@/lib/supabase/server"
-import type { ActionState, BookSearchResult, ManualBookInput, TallyResults, VotingMethod } from "@/lib/types"
+import type { ActionState, BookSearchResult, TallyResults, VotingMethod } from "@/lib/types"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 
@@ -77,21 +79,22 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
   redirect(`/clubs/${data as string}`)
 }
 
+type Supabase = Awaited<ReturnType<typeof createClient>>
+
+async function findBook(supabase: Supabase, sourceId: string): Promise<string | null> {
+  const { data } = await supabase.from("books").select("id").eq("source_id", sourceId).maybeSingle()
+  return data?.id ?? null
+}
+
 /**
- * Returns the catalog id for a book, inserting it only when it is new.
- * Returns null if the row could neither be found nor created.
+ * Adds a book to the shared catalog and returns its id. A unique violation
+ * means another request inserted the same book first, so that row is used.
+ * Returns null if the row could neither be created nor found.
  */
-async function findOrCreateBook(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  book: BookSearchResult,
-): Promise<string | null> {
-  const existing = await supabase.from("books").select("id").eq("source_id", book.sourceId).maybeSingle()
-
-  if (existing.data) return existing.data.id
-
-  // Only pay for the extra metadata lookup when actually inserting. Open
-  // Library's search endpoint returns just a first sentence (often a fragment
-  // in another language), so the work record supplies the real synopsis.
+async function insertBook(supabase: Supabase, book: BookSearchResult): Promise<string | null> {
+  // Open Library's search endpoint returns just a first sentence (often a
+  // fragment in another language), so the work record supplies the real
+  // synopsis.
   let description = book.description
   let categories = book.categories ?? []
   if (book.sourceId.startsWith("ol:")) {
@@ -117,51 +120,59 @@ async function findOrCreateBook(
     .single()
 
   if (inserted.data) return inserted.data.id
+  if (inserted.error?.code === "23505") return findBook(supabase, book.sourceId)
 
-  // Another request may have inserted the same book between our select and
-  // insert, so treat a unique violation as a hit and re-read the row.
-  if (inserted.error?.code === "23505") {
-    const raced = await supabase.from("books").select("id").eq("source_id", book.sourceId).maybeSingle()
-    if (raced.data) return raced.data.id
-  }
-
-  console.log("[v0] book insert failed:", inserted.error?.message)
+  console.error("book insert failed:", inserted.error?.message)
   return null
 }
 
-export async function nominateBookAction(clubId: string, book: BookSearchResult): Promise<ActionState> {
+async function nominate(supabase: Supabase, clubId: string, bookId: string, userId: string): Promise<string | null> {
+  const { error } = await supabase.from("club_candidate_books").insert({
+    club_id: clubId,
+    book_id: bookId,
+    added_by: userId,
+  })
+  if (!error) return null
+  if (error.code === "23505") return "That book is already nominated."
+  console.error("nominate failed:", error.message)
+  return friendly(error.message, "Could not nominate that book.")
+}
+
+/**
+ * Nominates a search result by its provider id. The book's details are
+ * looked up on the server rather than taken from the browser, because the
+ * catalog row is shared with every club that nominates the same book.
+ */
+export async function nominateBookAction(clubId: string, sourceId: string): Promise<ActionState> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return { error: "Sign in to nominate a book." }
 
-  // `books` is a shared catalog keyed by source_id, so a book another club
-  // already nominated is reused rather than rewritten. An upsert would issue an
-  // UPDATE here, which RLS blocks by design — one club must not be able to edit
-  // metadata that every other club reads.
-  const bookId = await findOrCreateBook(supabase, book)
-  if (!bookId) return { error: "Could not save that book. Try again." }
-
-  const { error } = await supabase.from("club_candidate_books").insert({
-    club_id: clubId,
-    book_id: bookId,
-    added_by: user.id,
-  })
-
-  if (error) {
-    if (error.code === "23505") return { error: "That book is already nominated." }
-    console.log("[v0] nominate failed:", error.message)
-    return { error: friendly(error.message, "Could not nominate that book.") }
+  // Already in the catalog: reuse it rather than rewriting it. RLS blocks
+  // updates by design, since one club must not edit what every club reads.
+  let bookId = await findBook(supabase, sourceId)
+  let title: string | null = null
+  if (!bookId) {
+    const book = await lookupBook(sourceId)
+    if (!book) return { error: "Couldn’t load that book’s details. Try again in a moment." }
+    title = book.title
+    bookId = await insertBook(supabase, book)
+    if (!bookId) return { error: "Could not save that book. Try again." }
   }
 
+  const error = await nominate(supabase, clubId, bookId, user.id)
+  if (error) return { error }
+
   revalidatePath(`/clubs/${clubId}`)
-  return { success: `“${book.title}” nominated.` }
+  return { success: title ? `“${title}” nominated.` : "Book nominated." }
 }
 
-export async function addManualBookAction(clubId: string, input: ManualBookInput): Promise<ActionState> {
-  const title = input.title.trim()
-  if (title.length < 1) return { error: "Give the book a title." }
+export async function addManualBookAction(clubId: string, fields: ManualBookFields): Promise<ActionState> {
+  const validated = validateManualBook(fields)
+  if (!validated.book) return { error: validated.error }
+  const input = validated.book
 
   const supabase = await createClient()
   const {
@@ -170,36 +181,24 @@ export async function addManualBookAction(clubId: string, input: ManualBookInput
   if (!user) return { error: "Sign in to add a book." }
 
   // Books added by hand have no external catalog entry to key off of, so a
-  // random id stands in for source_id, the column findOrCreateBook and the
-  // shared `books` catalog's uniqueness constraint both expect.
-  const book: BookSearchResult = {
+  // random id stands in for source_id.
+  const bookId = await insertBook(supabase, {
     sourceId: `manual:${crypto.randomUUID()}`,
-    title,
-    authors: input.authors.map((author) => author.trim()).filter(Boolean),
+    title: input.title,
+    authors: input.authors,
     description: null,
     categories: [],
     coverImageUrl: null,
     publishedDate: input.publishedDate,
     pageCount: input.pageCount,
-  }
-
-  const bookId = await findOrCreateBook(supabase, book)
+  })
   if (!bookId) return { error: "Could not save that book. Try again." }
 
-  const { error } = await supabase.from("club_candidate_books").insert({
-    club_id: clubId,
-    book_id: bookId,
-    added_by: user.id,
-  })
-
-  if (error) {
-    if (error.code === "23505") return { error: "That book is already nominated." }
-    console.log("[v0] manual add failed:", error.message)
-    return { error: friendly(error.message, "Could not add that book.") }
-  }
+  const error = await nominate(supabase, clubId, bookId, user.id)
+  if (error) return { error }
 
   revalidatePath(`/clubs/${clubId}`)
-  return { success: `“${book.title}” added.` }
+  return { success: `“${input.title}” added.` }
 }
 
 export async function removeCandidateAction(clubId: string, candidateId: string): Promise<ActionState> {

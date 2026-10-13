@@ -7,7 +7,7 @@ export default function AuthErrorPage() {
     <AuthShell
       eyebrow="Margin"
       title="That link didn’t work"
-      description="The confirmation link may have expired or already been used. Try signing in, or create the account again."
+      description="Email links expire, work only once, and need to be opened in the browser you asked for them from. Try signing in, or request a new link."
     >
       <div className="flex flex-col gap-3">
         <Button
@@ -20,6 +20,12 @@ export default function AuthErrorPage() {
           className="w-full"
           nativeButton={false}
           render={<Link href="/auth/sign-up">Create an account</Link>}
+        />
+        <Button
+          variant="ghost"
+          className="w-full"
+          nativeButton={false}
+          render={<Link href="/auth/forgot-password">Reset your password</Link>}
         />
       </div>
     </AuthShell>
