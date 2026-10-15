@@ -5,7 +5,12 @@ import { BookCover } from "@/components/books/book-cover"
 import { NominateBookDialog } from "@/components/books/nominate-book-dialog"
 import { CandidateList } from "@/components/clubs/candidate-list"
 import { ClubSettingsDialog } from "@/components/clubs/club-settings-dialog"
-import { CloseVotingButton, FinishReadButton, StartVotingButton } from "@/components/clubs/organizer-controls"
+import {
+  CancelVotingButton,
+  CloseVotingButton,
+  FinishReadButton,
+  StartVotingButton,
+} from "@/components/clubs/organizer-controls"
 import { CarryOver, type CarryOverBook } from "@/components/reads/carry-over"
 import { PastReads } from "@/components/reads/past-reads"
 import { ReadDates } from "@/components/reads/read-dates"
@@ -211,6 +216,16 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
 
   const reopenableId = isOwner && !currentRead && pastReads[0] ? pastReads[0].id : null
 
+  // Only the organizer can see who was removed (RLS).
+  const { data: removedRows } = isOwner
+    ? await supabase
+        .from("club_removed_members")
+        .select("user_id, profiles(display_name)")
+        .eq("club_id", club.id)
+        .order("removed_at", { ascending: false })
+    : { data: null }
+  const removedMembers = (removedRows ?? []) as unknown as Member[]
+
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-2xl flex-col gap-10 px-5 pb-16 pt-10">
       <header className="flex items-center justify-between gap-4">
@@ -234,6 +249,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
           isOwner={isOwner}
           votingMethod={club.voting_method}
           nominationLimit={club.max_nominations_per_member}
+          removedMembers={removedMembers}
         />
       </header>
 
@@ -417,7 +433,12 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
               />
             )}
             <p className="text-xs text-muted-foreground">Counted by {votingMethodLabel(activeSession.method)}.</p>
-            {isOwner ? <CloseVotingButton clubId={club.id} sessionId={activeSession.id} /> : null}
+            {isOwner ? (
+              <div className="flex flex-wrap gap-2">
+                <CloseVotingButton clubId={club.id} sessionId={activeSession.id} />
+                <CancelVotingButton clubId={club.id} sessionId={activeSession.id} ballots={ballotCount} />
+              </div>
+            ) : null}
           </>
         ) : null}
 
@@ -432,6 +453,15 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
               isOwner={isOwner}
             />
             <VoteResults session={tiedSession} booksById={booksById} />
+            {isOwner ? (
+              <div>
+                <CancelVotingButton
+                  clubId={club.id}
+                  sessionId={tiedSession.id}
+                  ballots={tiedSession.results.total_ballots}
+                />
+              </div>
+            ) : null}
           </>
         ) : null}
 

@@ -9,6 +9,7 @@ import {
   DeleteClubSetting,
   HandOffSetting,
   NominationLimitSetting,
+  RemovedMembersSetting,
 } from "@/components/clubs/organizer-settings"
 import { VotingMethodSetting } from "@/components/clubs/voting-method-setting"
 import { Button } from "@/components/ui/button"
@@ -33,6 +34,8 @@ type Props = {
   isOwner: boolean
   votingMethod: VotingMethod
   nominationLimit: number
+  /** People the organizer removed; only passed to the organizer. */
+  removedMembers?: Member[]
 }
 
 /** Join code, members, club rules and organizer tools: things needed rarely, kept off the main page. */
@@ -45,6 +48,7 @@ export function ClubSettingsDialog({
   isOwner,
   votingMethod,
   nominationLimit,
+  removedMembers = [],
 }: Props) {
   return (
     <Dialog>
@@ -72,6 +76,8 @@ export function ClubSettingsDialog({
           </h3>
           <MemberList clubId={clubId} members={members} ownerId={ownerId} isOwner={isOwner} />
         </div>
+
+        {isOwner ? <RemovedMembersSetting clubId={clubId} removed={removedMembers} /> : null}
 
         {isOwner ? (
           <div className="border-t border-border pt-6">

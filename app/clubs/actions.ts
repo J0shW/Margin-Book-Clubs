@@ -15,6 +15,8 @@ const RPC_MESSAGES: Record<string, string> = {
   removed_from_club: "The organizer removed you from this club.",
   cannot_remove_owner: "The organizer can’t be removed.",
   already_owner: "You’re already the organizer.",
+  not_removed: "They aren’t blocked from this club.",
+  book_not_editable: "Only the person who added this book, or the organizer, can edit it.",
   not_club_owner: "Only the club organizer can do that.",
   not_club_member: "You are not a member of this club.",
   session_already_active: "A vote is already running for this club.",
@@ -560,4 +562,57 @@ export async function deleteClubAction(clubId: string): Promise<ActionState> {
 
   revalidatePath("/clubs")
   redirect("/clubs")
+}
+
+export async function readmitMemberAction(clubId: string, userId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("readmit_club_member", { p_club_id: clubId, p_user_id: userId })
+
+  if (error) {
+    console.error("readmit_club_member failed:", error.message)
+    return { error: friendly(error.message, "Could not let them back in. Try again.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "They can rejoin with the join code." }
+}
+
+export async function cancelVotingAction(clubId: string, sessionId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("cancel_voting_session", { p_session_id: sessionId })
+
+  if (error) {
+    console.error("cancel_voting_session failed:", error.message)
+    return { error: friendly(error.message, "Could not cancel the vote. Try again.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Vote cancelled. Nominations are open again." }
+}
+
+export async function updateManualBookAction(
+  clubId: string,
+  bookId: string,
+  fields: ManualBookFields,
+): Promise<ActionState> {
+  const validated = validateManualBook(fields)
+  if (!validated.book) return { error: validated.error }
+  const { title, authors, publishedDate, pageCount } = validated.book
+
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("update_manual_book", {
+    p_book_id: bookId,
+    p_title: title,
+    p_authors: authors,
+    p_published_date: publishedDate ?? "",
+    p_page_count: pageCount,
+  })
+
+  if (error) {
+    console.error("update_manual_book failed:", error.message)
+    return { error: friendly(error.message, "Could not save the book. Try again.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "Book updated." }
 }
