@@ -19,3 +19,4 @@ it. New records use [`template.md`](template.md); the `adr` skill in
 | [0009](0009-supabase-keep-alive-cron.md) | Keep Supabase awake with a daily Vercel cron | Accepted |
 | [0010](0010-book-details-come-from-providers.md) | Book details come from the providers, not the browser | Accepted |
 | [0011](0011-organizer-club-controls.md) | Organizers rename, hand off and delete clubs, and set the nomination limit | Accepted |
+| [0012](0012-cancel-votes-readmit-members-edit-manual-books.md) | Cancelling a vote discards it; letting a member back in lifts the block | Accepted |

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import {
   deleteClubAction,
+  readmitMemberAction,
   renameClubAction,
   transferOwnershipAction,
   updateNominationLimitAction,
@@ -266,6 +267,41 @@ export function DeleteClubSetting({ clubId, clubName }: { clubId: string; clubNa
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </div>
+  )
+}
+
+export function RemovedMembersSetting({ clubId, removed }: { clubId: string; removed: Member[] }) {
+  const [pending, startTransition] = useTransition()
+  const [pendingId, setPendingId] = useState<string | null>(null)
+
+  if (!removed.length) return null
+
+  function readmit(member: Member) {
+    setPendingId(member.user_id)
+    startTransition(async () => {
+      report(await readmitMemberAction(clubId, member.user_id))
+      setPendingId(null)
+    })
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <SettingLabel>Removed</SettingLabel>
+      <ul className="flex flex-col gap-2">
+        {removed.map((member) => (
+          <li key={member.user_id} className="flex items-center justify-between gap-3">
+            <span className="min-w-0 truncate text-sm">{member.profiles?.display_name ?? "Former member"}</span>
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => readmit(member)}>
+              {pendingId === member.user_id ? <Spinner data-icon="inline-start" /> : null}
+              Let back in
+            </Button>
+          </li>
+        ))}
+      </ul>
+      <p className="text-xs text-muted-foreground">
+        Letting someone back in means they can rejoin with the join code.
+      </p>
     </div>
   )
 }

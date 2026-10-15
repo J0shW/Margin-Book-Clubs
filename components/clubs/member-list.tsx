@@ -74,7 +74,7 @@ export function MemberList({ clubId, members, ownerId, isOwner }: Props) {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove {removeTargetName}?</AlertDialogTitle>
             <AlertDialogDescription>
-              They’ll lose access to this club and won’t be able to rejoin with the join code. Their nominations
+              They’ll lose access to this club and can’t rejoin with the join code unless you let them back in. Their nominations
               and any ballots already cast stay.
             </AlertDialogDescription>
           </AlertDialogHeader>

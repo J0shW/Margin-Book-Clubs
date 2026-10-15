@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { BookCover } from "@/components/books/book-cover"
 import { BookDetailsDialog } from "@/components/books/book-details-dialog"
+import { EditManualBookDialog } from "@/components/books/edit-manual-book-dialog"
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import type { Candidate } from "@/lib/types"
@@ -45,7 +46,10 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
     <>
       <ul className="flex flex-col">
         {candidates.map((candidate) => {
-          const canRemove = !locked && (isOwner || candidate.added_by === currentUserId)
+          const canManage = isOwner || candidate.added_by === currentUserId
+          const canRemove = !locked && canManage
+          // Typos in hand-added books can be fixed even once voting has started.
+          const canEdit = canManage && candidate.books.source_id.startsWith("manual:")
           return (
             <li
               key={candidate.id}
@@ -85,6 +89,7 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                   open={openDetailsId === candidate.id}
                   onOpenChange={(open) => setOpenDetailsId(open ? candidate.id : null)}
                 />
+                {canEdit ? <EditManualBookDialog clubId={clubId} book={candidate.books} /> : null}
                 {canRemove ? (
                   <Button
                     variant="ghost"

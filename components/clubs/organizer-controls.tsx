@@ -2,7 +2,13 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { closeVotingAction, finishReadAction, leaveClubAction, startVotingAction } from "@/app/clubs/actions"
+import {
+  cancelVotingAction,
+  closeVotingAction,
+  finishReadAction,
+  leaveClubAction,
+  startVotingAction,
+} from "@/app/clubs/actions"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -124,6 +130,54 @@ export function FinishReadButton({
               }}
             >
               Mark finished
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  )
+}
+
+export function CancelVotingButton({ clubId, sessionId, ballots }: { clubId: string; sessionId: string; ballots: number }) {
+  const [pending, startTransition] = useTransition()
+  const [confirming, setConfirming] = useState(false)
+
+  function cancel() {
+    startTransition(async () => {
+      const result = await cancelVotingAction(clubId, sessionId)
+      if (result?.error) toast.error(result.error)
+      else toast.success(result?.success ?? "Vote cancelled.")
+    })
+  }
+
+  return (
+    <>
+      <Button variant="ghost" disabled={pending} onClick={() => setConfirming(true)}>
+        {pending ? <Spinner data-icon="inline-start" /> : null}
+        Cancel vote
+      </Button>
+      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this vote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {ballots === 0
+                ? "Nobody has voted yet."
+                : ballots === 1
+                  ? "The 1 ballot cast so far will be discarded."
+                  : `The ${ballots} ballots cast so far will be discarded.`}{" "}
+              Nominations reopen with the same shortlist, and you can open a new vote when you’re ready.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep voting</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirming(false)
+                cancel()
+              }}
+            >
+              Cancel vote
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
