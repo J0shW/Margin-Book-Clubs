@@ -18,7 +18,7 @@ export async function updateDisplayNameAction(_prev: ActionState, formData: Form
   const { error } = await supabase.from("profiles").update({ display_name: displayName }).eq("id", user.id)
 
   if (error) {
-    console.log("[v0] update display name failed:", error.message)
+    console.error("update display name failed:", error.message)
     return { error: "Could not update your display name. Try again." }
   }
 

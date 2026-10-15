@@ -33,10 +33,13 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
   const [pending, startTransition] = useTransition()
   const [openDetailsId, setOpenDetailsId] = useState<string | null>(null)
   const [removeTarget, setRemoveTarget] = useState<Candidate | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   function remove(candidateId: string) {
+    setRemovingId(candidateId)
     startTransition(async () => {
       const result = await removeCandidateAction(clubId, candidateId)
+      setRemovingId(null)
       if (result?.error) toast.error(result.error)
       else toast.success(result?.success ?? "Removed.")
     })
@@ -51,39 +54,25 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
           // Typos in hand-added books can be fixed even once voting has started.
           const canEdit = canManage && candidate.books.source_id.startsWith("manual:")
           return (
-            <li
-              key={candidate.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setOpenDetailsId(candidate.id)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault()
-                  setOpenDetailsId(candidate.id)
-                }
-              }}
-              className="flex cursor-pointer items-center gap-3 border-t border-border py-4 transition-colors hover:bg-muted/50"
-            >
-              <BookCover src={candidate.books.cover_image_url} title={candidate.books.title} className="w-14" />
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <p className="font-serif text-lg leading-tight text-pretty">{candidate.books.title}</p>
-                <p className="truncate text-xs text-muted-foreground">
-                  {candidate.books.authors.length ? candidate.books.authors.join(", ") : "Unknown author"}
-                  {candidate.books.page_count ? ` · ${candidate.books.page_count} pp.` : ""}
-                </p>
-                <p className="truncate text-xs text-muted-foreground">
-                  Nominated by {candidate.profiles?.display_name ?? "a member"}
-                </p>
-              </div>
-              {/*
-                React bubbles synthetic events through the component tree, not
-                the DOM tree — so clicks inside the dialog's portaled content
-                (its own close button included) would otherwise reach the row's
-                onClick and immediately reopen it. Stopping propagation here,
-                on the actions column itself, covers both that portal content
-                and the buttons below without needing it on each one.
-              */}
-              <div className="flex shrink-0 flex-col" onClick={(e) => e.stopPropagation()}>
+            <li key={candidate.id} className="flex items-center gap-3 border-t border-border py-4">
+              <button
+                type="button"
+                onClick={() => setOpenDetailsId(candidate.id)}
+                className="-my-4 flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md py-4 text-left transition-colors outline-none hover:bg-muted/50 focus-visible:ring-3 focus-visible:ring-ring/50"
+              >
+                <BookCover src={candidate.books.cover_image_url} title={candidate.books.title} className="w-14" />
+                <span className="flex min-w-0 flex-1 flex-col gap-1">
+                  <span className="font-serif text-lg leading-tight text-pretty">{candidate.books.title}</span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {candidate.books.authors.length ? candidate.books.authors.join(", ") : "Unknown author"}
+                    {candidate.books.page_count ? ` · ${candidate.books.page_count} pp.` : ""}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    Nominated by {candidate.profiles?.display_name ?? "a member"}
+                  </span>
+                </span>
+              </button>
+              <div className="flex shrink-0 flex-col">
                 <BookDetailsDialog
                   book={candidate.books}
                   open={openDetailsId === candidate.id}
@@ -98,7 +87,7 @@ export function CandidateList({ clubId, candidates, currentUserId, isOwner, lock
                     disabled={pending}
                     aria-label={`Remove ${candidate.books.title}`}
                   >
-                    {pending ? <Spinner /> : <XIcon />}
+                    {removingId === candidate.id ? <Spinner /> : <XIcon />}
                   </Button>
                 ) : null}
               </div>

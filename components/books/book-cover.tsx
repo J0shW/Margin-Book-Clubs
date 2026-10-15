@@ -19,7 +19,7 @@ export function BookCover({ src, title, className }: Props) {
         // Google Books thumbnails are arbitrary remote URLs, so use a plain img
         // instead of next/image to avoid per-host remotePatterns config.
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src || "/placeholder.svg"} alt={`Cover of ${title}`} className="size-full object-cover" loading="lazy" />
+        <img src={src} alt={`Cover of ${title}`} className="size-full object-cover" loading="lazy" />
       ) : (
         <div className="flex size-full items-center justify-center p-1">
           <span className="font-serif text-[0.6rem] leading-tight text-muted-foreground line-clamp-3 text-center">
