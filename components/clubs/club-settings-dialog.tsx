@@ -4,6 +4,12 @@ import { SettingsIcon } from "lucide-react"
 import { JoinCode } from "@/components/clubs/join-code"
 import { MemberList } from "@/components/clubs/member-list"
 import { LeaveClubButton } from "@/components/clubs/organizer-controls"
+import {
+  ClubNameSetting,
+  DeleteClubSetting,
+  HandOffSetting,
+  NominationLimitSetting,
+} from "@/components/clubs/organizer-settings"
 import { VotingMethodSetting } from "@/components/clubs/voting-method-setting"
 import { Button } from "@/components/ui/button"
 import {
@@ -26,10 +32,20 @@ type Props = {
   ownerId: string
   isOwner: boolean
   votingMethod: VotingMethod
+  nominationLimit: number
 }
 
-/** Join code, members, and leaving: things needed rarely, kept off the main page. */
-export function ClubSettingsDialog({ clubId, clubName, joinCode, members, ownerId, isOwner, votingMethod }: Props) {
+/** Join code, members, club rules and organizer tools: things needed rarely, kept off the main page. */
+export function ClubSettingsDialog({
+  clubId,
+  clubName,
+  joinCode,
+  members,
+  ownerId,
+  isOwner,
+  votingMethod,
+  nominationLimit,
+}: Props) {
   return (
     <Dialog>
       <DialogTrigger
@@ -57,9 +73,27 @@ export function ClubSettingsDialog({ clubId, clubName, joinCode, members, ownerI
           <MemberList clubId={clubId} members={members} ownerId={ownerId} isOwner={isOwner} />
         </div>
 
+        {isOwner ? (
+          <div className="border-t border-border pt-6">
+            <ClubNameSetting key={clubName} clubId={clubId} name={clubName} />
+          </div>
+        ) : null}
+
         <VotingMethodSetting clubId={clubId} method={votingMethod} canEdit={isOwner} />
 
-        {isOwner ? null : (
+        <NominationLimitSetting
+          key={nominationLimit}
+          clubId={clubId}
+          limit={nominationLimit}
+          canEdit={isOwner}
+        />
+
+        {isOwner ? (
+          <div className="flex flex-col gap-6 border-t border-border pt-6">
+            <HandOffSetting clubId={clubId} members={members} ownerId={ownerId} />
+            <DeleteClubSetting clubId={clubId} clubName={clubName} />
+          </div>
+        ) : (
           <div className="border-t border-border pt-4">
             <LeaveClubButton clubId={clubId} />
           </div>
