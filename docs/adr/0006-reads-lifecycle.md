@@ -1,6 +1,6 @@
 # 0006. Organize a club around reads with a fixed lifecycle
 
-- **Status:** Accepted
+- **Status:** Accepted (nomination default changed to 1 by [0011](0011-organizer-club-controls.md))
 - **Date:** 2026-10-12
 - **Related:** PRs #19, #20, #21; `supabase/migrations/20261013120000_reads.sql`, `lib/reads.ts`
 

@@ -3,6 +3,7 @@
 import { lookupBook } from "@/lib/book-sources"
 import { cleanCategories, fetchOpenLibraryWork } from "@/lib/books"
 import { type ManualBookFields, validateManualBook } from "@/lib/manual-book"
+import { MAX_NOMINATION_LIMIT } from "@/lib/clubs"
 import { createClient } from "@/lib/supabase/server"
 import type { ActionState, BookSearchResult, TallyResults, VotingMethod } from "@/lib/types"
 import { revalidatePath } from "next/cache"
@@ -13,6 +14,7 @@ const RPC_MESSAGES: Record<string, string> = {
   too_many_attempts: "Too many wrong codes. Wait a few minutes and try again.",
   removed_from_club: "The organizer removed you from this club.",
   cannot_remove_owner: "The organizer can’t be removed.",
+  already_owner: "You’re already the organizer.",
   not_club_owner: "Only the club organizer can do that.",
   not_club_member: "You are not a member of this club.",
   session_already_active: "A vote is already running for this club.",
@@ -486,6 +488,75 @@ export async function leaveClubAction(clubId: string): Promise<ActionState> {
     console.log("[v0] leave club failed:", error.message)
     return { error: "Could not leave the club." }
   }
+
+  revalidatePath("/clubs")
+  redirect("/clubs")
+}
+
+/** Organizer-only club updates. RLS limits updates to the organizer, so no row means not allowed. */
+async function updateClub(
+  clubId: string,
+  values: { name?: string; max_nominations_per_member?: number },
+): Promise<string | null> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("clubs").update(values).eq("id", clubId).select("id")
+  if (error) {
+    console.error("club update failed:", error.message)
+    return "Could not save that. Try again."
+  }
+  return data?.length ? null : RPC_MESSAGES.not_club_owner
+}
+
+export async function renameClubAction(clubId: string, rawName: string): Promise<ActionState> {
+  const name = rawName.trim()
+  if (name.length < 1) return { error: "Give your club a name." }
+  if (name.length > 80) return { error: "Keep the name to 80 characters or fewer." }
+
+  const error = await updateClub(clubId, { name })
+  if (error) return { error }
+
+  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath("/clubs")
+  return { success: "Club renamed." }
+}
+
+export async function updateNominationLimitAction(clubId: string, limit: number): Promise<ActionState> {
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_NOMINATION_LIMIT) {
+    return { error: `Pick a limit from 1 to ${MAX_NOMINATION_LIMIT}.` }
+  }
+
+  const error = await updateClub(clubId, { max_nominations_per_member: limit })
+  if (error) return { error }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: limit === 1 ? "Each member can nominate 1 book per read." : `Each member can nominate up to ${limit} books per read.` }
+}
+
+export async function transferOwnershipAction(clubId: string, newOwnerId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { error } = await supabase.rpc("transfer_club_ownership", {
+    p_club_id: clubId,
+    p_new_owner_id: newOwnerId,
+  })
+
+  if (error) {
+    console.error("transfer_club_ownership failed:", error.message)
+    return { error: friendly(error.message, "Could not hand off the club. Try again.") }
+  }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return { success: "They’re the organizer now." }
+}
+
+export async function deleteClubAction(clubId: string): Promise<ActionState> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("clubs").delete().eq("id", clubId).select("id")
+
+  if (error) {
+    console.error("club delete failed:", error.message)
+    return { error: "Could not delete the club. Try again." }
+  }
+  if (!data?.length) return { error: RPC_MESSAGES.not_club_owner }
 
   revalidatePath("/clubs")
   redirect("/clubs")

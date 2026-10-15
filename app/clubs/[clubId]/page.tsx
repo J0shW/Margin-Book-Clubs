@@ -233,6 +233,7 @@ export default async function ClubPage({ params }: { params: Promise<{ clubId: s
           ownerId={club.owner_id}
           isOwner={isOwner}
           votingMethod={club.voting_method}
+          nominationLimit={club.max_nominations_per_member}
         />
       </header>
 
