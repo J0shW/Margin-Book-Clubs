@@ -19,7 +19,6 @@ export const metadata: Metadata = {
   title: 'Margin — pick your book club’s next read',
   description:
     'Nominate books, rank your favorites, and let consensus voting settle what your book club reads next.',
-  generator: 'v0.app',
   icons: {
     icon: [
       {

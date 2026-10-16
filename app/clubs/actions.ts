@@ -54,7 +54,7 @@ export async function createClubAction(_prev: ActionState, formData: FormData): 
   const { data, error } = await supabase.rpc("create_club", { p_name: name }).single<{ id: string }>()
 
   if (error) {
-    console.log("[v0] create_club failed:", error.message)
+    console.error("create_club failed:", error.message)
     return { error: friendly(error.message, "Could not create the club. Try again.") }
   }
 
@@ -72,7 +72,7 @@ export async function joinClubAction(_prev: ActionState, formData: FormData): Pr
   const { data, error } = await supabase.rpc("join_club", { p_code: code })
 
   if (error) {
-    console.log("[v0] join_club failed:", error.message)
+    console.error("join_club failed:", error.message)
     return { error: friendly(error.message, "Could not join that club. Try again.") }
   }
   // An unknown code returns null rather than raising, so the attempt is
@@ -210,7 +210,7 @@ export async function removeCandidateAction(clubId: string, candidateId: string)
   const { error } = await supabase.from("club_candidate_books").delete().eq("id", candidateId)
 
   if (error) {
-    console.log("[v0] remove candidate failed:", error.message)
+    console.error("remove candidate failed:", error.message)
     return { error: "Could not remove that nomination." }
   }
 
@@ -223,7 +223,7 @@ export async function startVotingAction(clubId: string): Promise<ActionState> {
   const { error } = await supabase.rpc("start_voting_session", { p_club_id: clubId })
 
   if (error) {
-    console.log("[v0] start_voting_session failed:", error.message)
+    console.error("start_voting_session failed:", error.message)
     return { error: friendly(error.message, "Could not start the vote.") }
   }
 
@@ -236,7 +236,7 @@ export async function closeVotingAction(clubId: string, sessionId: string): Prom
   const { data, error } = await supabase.rpc("close_voting_session", { p_session_id: sessionId })
 
   if (error) {
-    console.log("[v0] close_voting_session failed:", error.message)
+    console.error("close_voting_session failed:", error.message)
     return { error: friendly(error.message, "Could not close the vote.") }
   }
 
@@ -251,7 +251,7 @@ export async function resolveVoteTieAction(clubId: string, sessionId: string, bo
   const { error } = await supabase.rpc("resolve_vote_tie", { p_session_id: sessionId, p_book_id: bookId })
 
   if (error) {
-    console.log("[v0] resolve_vote_tie failed:", error.message)
+    console.error("resolve_vote_tie failed:", error.message)
     return { error: friendly(error.message, "Could not pick the winner.") }
   }
 
@@ -272,7 +272,7 @@ export async function updateVotingMethodAction(clubId: string, method: VotingMet
     .select("id")
 
   if (error || !data?.length) {
-    if (error) console.log("[v0] update voting method failed:", error.message)
+    if (error) console.error("update voting method failed:", error.message)
     return { error: "Only the club organizer can change the voting method." }
   }
 
@@ -285,7 +285,7 @@ export async function finishReadAction(clubId: string, readId: string): Promise<
   const { error } = await supabase.rpc("finish_read", { p_read_id: readId })
 
   if (error) {
-    console.log("[v0] finish_read failed:", error.message)
+    console.error("finish_read failed:", error.message)
     return { error: friendly(error.message, "Could not mark the read finished.") }
   }
 
@@ -312,7 +312,7 @@ export async function startNextReadAction(
   })
 
   if (error) {
-    console.log("[v0] start_next_read failed:", error.message)
+    console.error("start_next_read failed:", error.message)
     return { error: friendly(error.message, "Could not start the next read.") }
   }
 
@@ -334,7 +334,7 @@ export async function updateReadDatesAction(
   })
 
   if (error) {
-    console.log("[v0] update_read_dates failed:", error.message)
+    console.error("update_read_dates failed:", error.message)
     return { error: friendly(error.message, "Could not save those dates.") }
   }
 
@@ -347,7 +347,7 @@ export async function reopenReadAction(clubId: string, readId: string): Promise<
   const { error } = await supabase.rpc("reopen_read", { p_read_id: readId })
 
   if (error) {
-    console.log("[v0] reopen_read failed:", error.message)
+    console.error("reopen_read failed:", error.message)
     return { error: friendly(error.message, "Could not reopen that read.") }
   }
 
@@ -382,7 +382,7 @@ export async function renominateBooksAction(clubId: string, bookIds: string[]): 
     }
     if (error.code === "23505") continue
 
-    console.log("[v0] renominate failed:", error.message)
+    console.error("renominate failed:", error.message)
     revalidatePath(`/clubs/${clubId}`)
     const reason = friendly(error.message, "Could not nominate that book.")
     return { error: added > 0 ? `Added ${added}. ${reason}` : reason }
@@ -421,7 +421,7 @@ export async function rateReadAction(
     )
 
   if (error) {
-    console.log("[v0] rate read failed:", error.message)
+    console.error("rate read failed:", error.message)
     // RLS rejects ratings for reads that aren't finished yet.
     if (error.code === "42501") return { error: "This read can be rated once it’s marked finished." }
     return { error: "Could not save your rating. Try again." }
@@ -452,7 +452,7 @@ export async function submitBallotAction(
 
   if (error) {
     if (error.code === "23505") return { error: "You already voted in this round." }
-    console.log("[v0] submit_ballot failed:", error.message)
+    console.error("submit_ballot failed:", error.message)
     return { error: friendly(error.message, "Could not submit your ballot.") }
   }
 
@@ -465,7 +465,7 @@ export async function removeMemberAction(clubId: string, userId: string): Promis
   const { error } = await supabase.rpc("remove_club_member", { p_club_id: clubId, p_user_id: userId })
 
   if (error) {
-    console.log("[v0] remove_club_member failed:", error.message)
+    console.error("remove_club_member failed:", error.message)
     return { error: friendly(error.message, "Could not remove that member.") }
   }
 
@@ -487,7 +487,7 @@ export async function leaveClubAction(clubId: string): Promise<ActionState> {
     .eq("user_id", user.id)
 
   if (error) {
-    console.log("[v0] leave club failed:", error.message)
+    console.error("leave club failed:", error.message)
     return { error: "Could not leave the club." }
   }
 

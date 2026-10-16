@@ -26,7 +26,7 @@ export async function signInAction(_prev: AuthState, formData: FormData): Promis
 
   if (error) {
     // Log the detail server-side; return copy that does not confirm whether the account exists.
-    console.log("[v0] sign-in failed:", error.code, error.message)
+    console.error("sign-in failed:", error.code, error.message)
 
     if (error.code === "email_not_confirmed") {
       return { error: "Confirm your email address first — check your inbox for the link." }
@@ -59,13 +59,14 @@ export async function signUpAction(_prev: AuthState, formData: FormData): Promis
     email,
     password,
     options: {
-      emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL,
+      // The confirmation link signs them in through the callback.
+      emailRedirectTo: `${await siteOrigin()}/auth/callback`,
       data: { display_name: displayName || email.split("@")[0] },
     },
   })
 
   if (error) {
-    console.log("[v0] sign-up failed:", error.code, error.message)
+    console.error("sign-up failed:", error.code, error.message)
 
     if (error.code === "weak_password") {
       return { error: "That password is too weak. Try something longer." }
