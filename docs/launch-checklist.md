@@ -38,13 +38,13 @@ The assessment assumed the following; revisit the plan if any change.
 
 ## Status
 
-Release readiness: **0 of 6 blockers done.**
+Release readiness: **1 of 6 blockers done.**
 
 ### Blockers
 
 | ID | Item | Type | Effort | Status | PR / notes |
 |---|---|---|---|---|---|
-| B1 | Upgrade Next.js off 16.3.0 (critical advisories) | Code | S | in progress | Upgraded to 16.4.5; done once production redeploys |
+| B1 | Upgrade Next.js off 16.3.0 (critical advisories) | Code | S | done | #32 (Next.js 16.4.5) |
 | B2 | Custom SMTP for Supabase Auth | Setting, Decision | S–M | todo | |
 | B3 | Email links that work in any browser (confirm sign-up and reset) | Setting | S | todo | |
 | B4 | Backups, and one restore actually tested | Code | M | todo | |
@@ -125,7 +125,7 @@ The production deployment was `main` at `7ed1189`.
 - [x] `next` is on the latest 16.4.x (16.4.5 at the time of writing), with
       the upgrade notes in `node_modules/next/dist/docs/` checked.
 - [x] `pnpm audit --prod` shows no critical or high advisory for `next`.
-- [ ] Typecheck, tests and build pass; production redeployed.
+- [x] Typecheck, tests and build pass; production redeployed.
 
 **Progress (2026-11-04):** upgraded to 16.4.5, a minor release within 16.x,
 so the 15→16 version guide doesn't apply and no code changes were needed.
@@ -133,8 +133,9 @@ The lockfile also picked up patched `nanoid`, `browserslist` and
 `source-map-js` under Next's own dependencies. Afterwards `pnpm audit --prod`
 showed nothing on `next` and only one moderate advisory (`baseline-browser-mapping`)
 outside `shadcn`'s tree. The remaining 1 critical and 24 high are all under
-`shadcn` (see L2). Typecheck, tests and build pass locally; production
-redeploys when this merges.
+`shadcn` (see L2). Typecheck, tests and build passed locally and in CI, and
+the preview loaded against the live database. Merged in PR #32; production
+redeployed from `main` at `912bb57`.
 
 ### B2. Custom SMTP for Supabase Auth
 
