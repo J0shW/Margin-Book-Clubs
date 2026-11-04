@@ -16,6 +16,15 @@ in your reply, ready to paste, ending with its history row:
 `insert into supabase_migrations.schema_migrations (version, name) values ('<timestamp>', '<name>');`
 Then verify it on the live database with read-only queries once they've run it.
 
+# First release checklist
+
+Work toward the first release is tracked in `docs/launch-checklist.md`.
+When a PR works on one of its items, mention the item's ID (e.g. `B1`) in
+the PR and update the checklist in the same PR: its status, PR number, and
+"Done when" boxes. Add newly found problems with the next free ID rather
+than renumbering. When the owner makes a settings change or answers an open
+decision, record it there too.
+
 # Pending setup (remind the owner)
 
 - **Custom SMTP for Supabase Auth is not set up yet.** Supabase's built-in
